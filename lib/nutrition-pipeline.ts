@@ -107,7 +107,7 @@ Always return valid JSON.`;
 
 const PLAN_SYSTEM = `You break a described meal into its individual food components so each can be looked up in a nutrition database.
 
-CRITICAL: If the meal is a single packaged or branded product (a named brand like "Maruchan ramen", "Clif bar", "Chobani yogurt", or a standard packaged item eaten as-is), DO NOT split it. Return it as ONE component using its full product name (including the brand), with a lookupQuery that keeps the brand and product (e.g. query "Maruchan ramen chicken"). Packaged products have a single nutrition label — splitting them into ingredients makes the estimate wrong.
+CRITICAL: If the meal is a single packaged or branded product — a named brand like "Maruchan ramen", "Clif bar", "Chobani yogurt", or a standard packaged item eaten as-is — DO NOT split it, even when the product's full name is long and reads like a dish description. Frozen/packaged entrees are named after their contents (e.g. "Healthy Choice Cafe Steamers Grilled Chicken Marinara with Parmesan", "Lean Cuisine Alfredo Pasta with Chicken & Broccoli", "Hot Pockets Pepperoni Pizza"): everything after the brand/product line is the FLAVOR or VARIETY of that ONE product, not a list of separate ingredients to look up and sum. If the description names a specific packaged product (brand, or a known product line like "Cafe Steamers", "Lean Cuisine", "Hot Pockets", "Stouffer's", "Marie Callender's", "Banquet"), return it as ONE component using its full product name (including the brand), with a lookupQuery that keeps the brand and full product name (e.g. query "Healthy Choice Cafe Steamers Grilled Chicken Marinara with Parmesan"). Packaged products have a single nutrition label — splitting them into ingredients makes the estimate wrong.
 
 Otherwise, for composed or homemade meals, split into every distinct component (each protein, bread, cheese, sauce, side, drink, etc.). For each component, keep the EXACT quantity the user stated in its name, and give a short database search query WITHOUT the quantity (e.g. component "3 slices pepperoni" → query "pepperoni").
 
@@ -137,6 +137,24 @@ const JSON_SCHEMA = `{
 }`;
 
 type Plan = { mealName: string; components: { name: string; lookupQuery: string; branded?: boolean }[] };
+
+// Known frozen/packaged-meal product lines whose full names read like a dish
+// description (e.g. "Healthy Choice Cafe Steamers Grilled Chicken Marinara
+// with Parmesan"). The planner LLM sometimes splits these into ingredients
+// despite PLAN_SYSTEM's instruction not to — this is a deterministic backstop
+// that forces single-product treatment regardless of what the planner returns.
+const PACKAGED_MEAL_BRANDS = [
+  "healthy choice", "cafe steamers", "lean cuisine", "stouffer's", "stouffers",
+  "hot pockets", "hungry-man", "hungry man", "banquet", "marie callender's",
+  "marie callenders", "amy's", "amys kitchen", "kevin's natural foods",
+  "smart ones", "michelina's", "michelinas", "bertolli", "birds eye voila",
+  "devour", "tai pei", "p.f. chang's home menu", "evol foods", "gardein",
+];
+
+function looksLikePackagedMeal(text: string): boolean {
+  const lower = text.toLowerCase();
+  return PACKAGED_MEAL_BRANDS.some((b) => lower.includes(b));
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -267,14 +285,17 @@ export async function* runNutritionPipeline(input: PipelineInput): AsyncGenerato
     // real serving sizes) and let the verifier pick + scale to a real portion —
     // USDA Branded data is inconsistent, so picking one programmatically is worse
     // than letting the model choose. For composed meals, look up each component.
-    const isPackaged = components.length === 1;
+    // A known packaged-meal brand in the description overrides a multi-component
+    // plan — see looksLikePackagedMeal.
+    const isPackaged = components.length === 1 || looksLikePackagedMeal(description);
     const usdaLines: string[] = [];
     const webComponentBlocks: string[] = [];
     let productCandidatesBlock = "";
     let webSnippets: string[] = [];
 
     if (isPackaged) {
-      const hits = await searchUsdaFoods(components[0].lookupQuery || description, 8);
+      const lookupQuery = (components.length === 1 && components[0].lookupQuery) || description;
+      const hits = await searchUsdaFoods(lookupQuery, 8);
       const ranked = hits
         .map((h) => ({ h, score: nameMatchScore(description, `${h.name} ${h.brand ?? ""}`) }))
         .sort((a, b) => b.score - a.score)
