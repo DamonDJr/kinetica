@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/app/generated/prisma
+
+# SQLite DB
+prisma/kinetica.db
+prisma/kinetica.db-shm
+prisma/kinetica.db-wal
+
+# Private user media (progress photos)
+/data

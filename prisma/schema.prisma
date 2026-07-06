@@ -1,0 +1,315 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          String    @default("member")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  profile       Profile?
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Profile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  displayName      String
+  age              Int?
+  gender           String?
+  heightCm         Float?
+  weightKg         Float?
+  goalWeightKg     Float?
+  activityLevel    String    @default("moderate")
+  conditions       String    @default("[]")
+  injuries         String    @default("[]")
+  restrictions     String    @default("[]")
+  fitnessGoals     String    @default("[]")
+  equipment        String    @default("[]")
+  calorieTarget    Int?
+  calorieTargetMin Int?
+  calorieTargetMax Int?
+  proteinTargetG   Int?
+  carbTargetG      Int?
+  fatTargetG       Int?
+  targetsCustom    Boolean   @default(false)
+  xpPoints         Int       @default(0)
+  level            Int       @default(1)
+  streakDays       Int       @default(0)
+  lastActiveDate   DateTime?
+  avatarColor      String    @default("#6366f1")
+  activeProgramId  String?
+  mealRemindersEnabled  Boolean   @default(true)
+  workoutNudgesEnabled  Boolean   @default(true)
+  notifyStartHour       Int       @default(9)
+  notifyEndHour         Int       @default(21)
+  lastMealNudgeAt       DateTime?
+  lastWorkoutNudgeAt    DateTime?
+  smartNudgesEnabled    Boolean   @default(true)
+  dailyNudgeCap         Int       @default(3)
+  lastSmartNudgeAt      DateTime?
+  wakeTimeGoal          String?
+  sleepGoalHours        Float     @default(8)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutPlans     WorkoutPlan[]
+  workoutLogs      WorkoutLog[]
+  mealLogs         MealLog[]
+  savedFoods       SavedFood[]
+  waterLogs        WaterLog[]
+  burnedLogs       BurnedCalorieLog[]
+  sleepLogs        SleepLog[]
+  measurements     BodyMeasurement[]
+  progressPhotos   ProgressPhoto[]
+  pushSubscription PushSubscription?
+  aiInsights       AiInsight[]
+  programs         WorkoutProgram[]
+}
+
+model WorkoutProgram {
+  id          String           @id @default(cuid())
+  profileId   String
+  name        String
+  description String?
+  userNotes   String           @default("")
+  weeks       Int              @default(4)
+  daysPerWeek Int              @default(3)
+  goal        String           @default("general")
+  difficulty  String           @default("beginner")
+  aiGenerated        Boolean          @default(false)
+  isActive           Boolean          @default(true)
+  generationStatus   String           @default("idle")
+  generationProgress String           @default("{}")
+  progressionTips    String           @default("[]")
+  importedFromText   String?
+  importSource       String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  profile            Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  sessions           ProgramSession[]
+}
+
+model ProgramSession {
+  id             String         @id @default(cuid())
+  programId      String
+  dayNumber      Int
+  name           String
+  focus          String         @default("")
+  exercises          String         @default("[]")
+  originalExercises  String?
+  adjustmentNote     String?
+  conditionTips      String         @default("[]")
+  notes              String?
+  completed          Boolean        @default(false)
+  completedAt        DateTime?
+  createdAt      DateTime       @default(now())
+  program        WorkoutProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+}
+
+model WorkoutPlan {
+  id          String       @id @default(cuid())
+  profileId   String
+  title       String
+  description String?
+  difficulty  String       @default("beginner")
+  durationMin Int          @default(30)
+  category    String       @default("strength")
+  exercises   String       @default("[]")
+  aiGenerated Boolean      @default(false)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  profile     Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  logs        WorkoutLog[]
+}
+
+model WorkoutLog {
+  id             String       @id @default(cuid())
+  profileId      String
+  workoutPlanId  String?
+  title          String
+  completedAt    DateTime     @default(now())
+  durationMin    Int?
+  caloriesBurned Int?
+  notes          String?
+  exercises      String       @default("[]")
+  feedback       String       @default("[]")
+  mood           Int?
+  energyLevel    Int?
+  profile        Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  workoutPlan    WorkoutPlan? @relation(fields: [workoutPlanId], references: [id])
+}
+
+model MealLog {
+  id        String   @id @default(cuid())
+  profileId String
+  mealType  String   @default("other")
+  name      String
+  calories  Int      @default(0)
+  proteinG  Float    @default(0)
+  carbsG    Float    @default(0)
+  fatG      Float    @default(0)
+  notes     String?
+  loggedAt  DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model SavedFood {
+  id                 String   @id @default(cuid())
+  profileId          String
+  name               String
+  brand              String?
+  servingDescription String   @default("")
+  calories           Int      @default(0)
+  proteinG           Float    @default(0)
+  carbsG             Float    @default(0)
+  fatG               Float    @default(0)
+  source             String   @default("ai")
+  useCount           Int      @default(1)
+  lastUsedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, name, servingDescription])
+  @@index([profileId, lastUsedAt])
+}
+
+model WaterLog {
+  id        String   @id @default(cuid())
+  profileId String
+  amountMl  Int
+  loggedAt  DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+// One canonical "calories burned" figure per day (e.g. a watch/tracker total).
+// Net calories = food intake − this. POST replaces the day's value rather than
+// accumulating, since a daily total is a single number the user re-reads/edits.
+model BurnedCalorieLog {
+  id        String   @id @default(cuid())
+  profileId String
+  kcal      Int
+  source    String   @default("manual")
+  note      String?
+  loggedAt  DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, loggedAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  profileId String   @unique
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model SleepLog {
+  id          String   @id @default(cuid())
+  profileId   String
+  sleepStart  DateTime?
+  wakeAt      DateTime?
+  hours       Float
+  quality     Int      @default(3)
+  notes       String?
+  loggedAt    DateTime @default(now())
+  forDate     DateTime
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, forDate])
+}
+
+model BodyMeasurement {
+  id          String   @id @default(cuid())
+  profileId   String
+  takenAt     DateTime @default(now())
+  weightKg    Float?
+  bodyFatPct  Float?
+  waistCm     Float?
+  chestCm     Float?
+  hipsCm      Float?
+  armCm       Float?
+  thighCm     Float?
+  neckCm      Float?
+  notes       String?
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, takenAt])
+}
+
+// Metadata only — the image bytes live on disk under data/progress-photos/
+// (see lib/progress-photos.ts) and are served through an auth-checked route.
+model ProgressPhoto {
+  id        String   @id @default(cuid())
+  profileId String
+  takenAt   DateTime @default(now())
+  fileName  String
+  width     Int
+  height    Int
+  notes     String?
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, takenAt])
+}
+
+model AiInsight {
+  id        String   @id @default(cuid())
+  profileId String
+  type      String
+  content   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}

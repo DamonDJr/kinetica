@@ -1,26 +1,293 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #faf8f5;
+  --foreground: #1a1520;
+  --card: #ffffff;
+  --card-foreground: #1a1520;
+  --popover: #ffffff;
+  --popover-foreground: #1a1520;
+  --primary: #7c6af7;
+  --primary-foreground: #ffffff;
+  --secondary: #f3eefb;
+  --secondary-foreground: #4a3f70;
+  --muted: #f5f0eb;
+  --muted-foreground: #8a7d90;
+  --accent: #2dd4bf;
+  --accent-foreground: #0a3d38;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e8e0ed;
+  --input: #f3eefb;
+  --ring: #7c6af7;
+  --radius: 0.75rem;
+
+  /*
+   * Macro palette. Used everywhere we show food macros so pills, bars, and
+   * charts stay in sync. Calories map to --primary and protein to --accent
+   * (already themed); carbs/fat get their own tokens with per-theme values.
+   */
+  --carbs: #b45309;
+  --fat: #e11d48;
+
+  --glow-purple: 0 4px 24px rgba(124, 106, 247, 0.18);
+  --glow-teal: 0 4px 24px rgba(45, 212, 191, 0.18);
+}
+
+/*
+ * Dark theme ("night mode"). The whole app reads these CSS variables through
+ * the Tailwind tokens (bg-card, text-foreground, …), so overriding them here
+ * recolors everything in one place. Applied when the <html data-theme="dark">
+ * attribute is set (by the toggle / the pre-paint script in layout.tsx).
+ */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0d0f14;
+  --foreground: #ecebf0;
+  --card: #151821;
+  --card-foreground: #ecebf0;
+  --popover: #151821;
+  --popover-foreground: #ecebf0;
+  --primary: #8b7bff;
+  --primary-foreground: #ffffff;
+  --secondary: #221f30;
+  --secondary-foreground: #d6cfe9;
+  --muted: #191c25;
+  --muted-foreground: #9a93a8;
+  --accent: #2dd4bf;
+  --accent-foreground: #06241f;
+  --destructive: #f05252;
+  --destructive-foreground: #ffffff;
+  --border: #272431;
+  --input: #221f30;
+  --ring: #8b7bff;
+
+  /* Brighter macro tones that read on the #151821 dark card */
+  --carbs: #fcd34d;
+  --fat: #fb7185;
+
+  --glow-purple: 0 4px 24px rgba(124, 106, 247, 0.30);
+  --glow-teal: 0 4px 24px rgba(45, 212, 191, 0.28);
+}
+
+/*
+ * No-JS / pre-hydration fallback: follow the OS preference only when no
+ * explicit choice has been stored on <html>. The toggle always sets
+ * data-theme, so once the user chooses, this never overrides them.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --background: #0d0f14;
+    --foreground: #ecebf0;
+    --card: #151821;
+    --card-foreground: #ecebf0;
+    --popover: #151821;
+    --popover-foreground: #ecebf0;
+    --primary: #8b7bff;
+    --secondary: #221f30;
+    --secondary-foreground: #d6cfe9;
+    --muted: #191c25;
+    --muted-foreground: #9a93a8;
+    --accent-foreground: #06241f;
+    --destructive: #f05252;
+    --border: #272431;
+    --input: #221f30;
+    --ring: #8b7bff;
+    --carbs: #fcd34d;
+    --fat: #fb7185;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-carbs: var(--carbs);
+  --color-fat: var(--fat);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Warm glass effect for light theme */
+.glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 224, 237, 0.8);
+  box-shadow: 0 1px 12px rgba(124, 106, 247, 0.06);
+}
+
+/* Glass for dark theme: tinted dark instead of frosted white */
+[data-theme="dark"] .glass {
+  background: rgba(21, 24, 33, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+}
+
+/*
+ * Dark-theme remnant fixes.
+ *
+ * Parts of the app hardcode light colors (bg-white surfaces, light amber/
+ * indigo/rose tints, gradients fading to white) instead of using the themed
+ * tokens, so they stay bright in dark mode. These rules remap those exact
+ * utilities to theme-aware values. Selector and gradient-variable names were
+ * verified against Tailwind v4's compiled output.
+ *
+ * Note: `.bg-white` matches ONLY the solid utility. The intentional
+ * translucent whites layered on colored surfaces (bg-white/10..30 on the
+ * primary/destructive banners and the rest-timer overlay) are separate class
+ * tokens and are deliberately left untouched.
+ */
+
+/* Solid white surfaces (cards, inputs, tabs, list rows) -> themed card color */
+[data-theme="dark"] .bg-white {
+  background-color: var(--card);
+}
+
+/* Translucent white sub-surfaces -> translucent themed card */
+[data-theme="dark"] .bg-white\/60 {
+  background-color: color-mix(in srgb, var(--card) 60%, transparent);
+}
+[data-theme="dark"] .bg-white\/70 {
+  background-color: color-mix(in srgb, var(--card) 75%, transparent);
+}
+[data-theme="dark"] .bg-white\/90 {
+  background-color: color-mix(in srgb, var(--card) 90%, transparent);
+}
+
+/* Gradients fading to white -> fade to the themed card color. Overriding the
+ * to/from custom property works because --tw-gradient-stops reads it via var(). */
+[data-theme="dark"] .to-white {
+  --tw-gradient-to: var(--card);
+}
+
+/* Light amber tints (warnings, streaks, carb chips) -> readable dark amber */
+[data-theme="dark"] .bg-amber-50,
+[data-theme="dark"] .bg-amber-100 {
+  background-color: color-mix(in srgb, #f59e0b 15%, transparent);
+}
+[data-theme="dark"] .from-amber-50 {
+  --tw-gradient-from: color-mix(in srgb, #f59e0b 12%, transparent);
+}
+[data-theme="dark"] .border-amber-200,
+[data-theme="dark"] .border-amber-300 {
+  border-color: color-mix(in srgb, #f59e0b 32%, transparent);
+}
+[data-theme="dark"] .text-amber-700,
+[data-theme="dark"] .text-amber-800,
+[data-theme="dark"] .text-amber-900 {
+  color: #fcd34d;
+}
+
+/* Light indigo tints (sleep cards) */
+[data-theme="dark"] .bg-indigo-50 {
+  background-color: color-mix(in srgb, #6366f1 16%, transparent);
+}
+[data-theme="dark"] .from-indigo-50 {
+  --tw-gradient-from: color-mix(in srgb, #6366f1 14%, transparent);
+}
+[data-theme="dark"] .border-indigo-200 {
+  border-color: color-mix(in srgb, #6366f1 32%, transparent);
+}
+
+/* Light teal tints (cool-down callouts) */
+[data-theme="dark"] .bg-teal-50 {
+  background-color: color-mix(in srgb, #14b8a6 14%, transparent);
+}
+[data-theme="dark"] .border-teal-200 {
+  border-color: color-mix(in srgb, #14b8a6 32%, transparent);
+}
+[data-theme="dark"] .text-teal-700 {
+  color: #5eead4;
+}
+
+/* Light rose tints (measurement risk cards) */
+[data-theme="dark"] .bg-rose-50 {
+  background-color: color-mix(in srgb, #f43f5e 14%, transparent);
+}
+[data-theme="dark"] .from-rose-50 {
+  --tw-gradient-from: color-mix(in srgb, #f43f5e 12%, transparent);
+}
+[data-theme="dark"] .border-rose-200 {
+  border-color: color-mix(in srgb, #f43f5e 32%, transparent);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #7c6af7 0%, #2dd4bf 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Soft glow */
+.glow-purple {
+  box-shadow: var(--glow-purple);
+}
+.glow-teal {
+  box-shadow: var(--glow-teal);
+}
+
+/* Progress ring */
+.progress-ring {
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Safe area for mobile PWA */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
