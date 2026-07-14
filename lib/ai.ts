@@ -71,16 +71,7 @@ export async function generateVisionCompletion(
   return stripReasoning(response.choices[0]?.message?.content ?? "");
 }
 
-export async function generateJSON<T>(
-  systemPrompt: string,
-  userPrompt: string,
-  opts?: { maxTokens?: number }
-): Promise<T | null> {
-  const raw = await generateCompletion(
-    systemPrompt + "\n\nRespond ONLY with valid JSON. No markdown, no explanation.",
-    userPrompt,
-    { temperature: 0.3, maxTokens: opts?.maxTokens ?? 6000 }
-  );
+function parseJsonResponse<T>(raw: string): T | null {
   try {
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     // Models sometimes wrap the JSON in prose. Extract the outermost object or
@@ -92,4 +83,28 @@ export async function generateJSON<T>(
   } catch {
     return null;
   }
+}
+
+export async function generateJSON<T>(
+  systemPrompt: string,
+  userPrompt: string,
+  opts?: { maxTokens?: number }
+): Promise<T | null> {
+  const system = systemPrompt + "\n\nRespond ONLY with valid JSON. No markdown, no explanation.";
+  const raw = await generateCompletion(system, userPrompt, {
+    temperature: 0.3,
+    maxTokens: opts?.maxTokens ?? 6000,
+  });
+  const parsed = parseJsonResponse<T>(raw);
+  if (parsed !== null) return parsed;
+
+  // One corrective retry: local models occasionally emit malformed JSON on the
+  // first pass but recover reliably when told exactly what went wrong.
+  const retry = await generateCompletion(
+    system,
+    userPrompt +
+      "\n\nYour previous response was not valid JSON. Respond again with ONLY the JSON object — no prose, no markdown fences, no trailing commas.",
+    { temperature: 0.2, maxTokens: opts?.maxTokens ?? 6000 }
+  );
+  return parseJsonResponse<T>(retry);
 }

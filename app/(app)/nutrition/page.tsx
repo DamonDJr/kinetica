@@ -65,6 +65,7 @@ export default async function NutritionPage({
     db.mealLog.findMany({
       where: { profileId: profile.id, loggedAt: { gte: dayStart, lt: dayEnd } },
       orderBy: { loggedAt: "asc" },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
     }),
     db.waterLog.findMany({
       where: { profileId: profile.id, loggedAt: { gte: dayStart, lt: dayEnd } },

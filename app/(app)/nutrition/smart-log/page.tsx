@@ -8,10 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { ItemsEditor, buildEditableItems, itemsTotal, type EditableItem } from "@/components/nutrition/item-editor";
 
-type NutritionItem = { name: string; calories: number; proteinG: number; carbsG: number; fatG: number };
+type NutritionItem = {
+  name: string;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  servingAmount?: number;
+  servingUnit?: string;
+  servingGrams?: number;
+};
 
 type NutritionResult = {
+  id?: string;
   name: string;
   servingDescription?: string;
   brand?: string | null;
@@ -19,13 +30,14 @@ type NutritionResult = {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  servingAmount?: number;
+  servingUnit?: string;
+  servingGrams?: number;
   confidence?: "high" | "medium" | "low";
   notes?: string;
   items?: NutritionItem[];
   source?: "database" | "web";
 };
-
-type MacroField = "calories" | "proteinG" | "carbsG" | "fatG";
 
 type SavedFood = NutritionResult & { id: string; source: string; useCount: number; lastUsedAt: string };
 type SourceTag = "search" | "ai" | "photo" | "saved";
@@ -135,8 +147,8 @@ export default function SmartLogPage() {
   const [logging, setLoading] = useState(false);
   const [logged, setLogged] = useState(false);
 
-  // Multiplier for servings
-  const [servings, setServings] = useState("1");
+  // Editable per-item breakdown of the currently-selected result.
+  const [items, setItems] = useState<EditableItem[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,6 +169,7 @@ export default function SmartLogPage() {
   function selectResult(item: NutritionResult, source: SourceTag) {
     setSelected(item);
     setSelectedSource(source);
+    setItems(buildEditableItems(item));
   }
 
   async function handleSearch(q: string) {
@@ -235,7 +248,7 @@ export default function SmartLogPage() {
   async function handleLog() {
     if (!selected) return;
     setLoading(true);
-    const mult = parseFloat(servings) || 1;
+    const totals = itemsTotal(items);
     // For autosave: anything from AI / photo / search becomes a SavedFood.
     // "saved" reuses an existing entry — the API just bumps useCount on POST.
     const saveSource: "ai" | "photo" | "search" | undefined =
@@ -249,20 +262,32 @@ export default function SmartLogPage() {
         body: JSON.stringify({
           mealType,
           name: selected.name,
-          calories: Math.round(selected.calories * mult),
-          proteinG: Math.round(selected.proteinG * mult * 10) / 10,
-          carbsG: Math.round(selected.carbsG * mult * 10) / 10,
-          fatG: Math.round(selected.fatG * mult * 10) / 10,
+          calories: totals.calories,
+          proteinG: totals.proteinG,
+          carbsG: totals.carbsG,
+          fatG: totals.fatG,
           source: saveSource,
           servingDescription: selected.servingDescription,
           brand: selected.brand,
           date: logDate,
-          perServing: {
-            calories: selected.calories,
-            proteinG: selected.proteinG,
-            carbsG: selected.carbsG,
-            fatG: selected.fatG,
-          },
+          perServing: totals,
+          items: items.map((it) => ({
+            name: it.name,
+            calories: it.calories,
+            proteinG: it.proteinG,
+            carbsG: it.carbsG,
+            fatG: it.fatG,
+            servingAmount: it.servingAmount,
+            servingUnit: it.servingUnit,
+            servingGrams: it.servingGrams,
+            baseCalories: it.baseCalories,
+            baseProteinG: it.baseProteinG,
+            baseCarbsG: it.baseCarbsG,
+            baseFatG: it.baseFatG,
+            baseServingAmount: it.baseServingAmount,
+            baseServingGrams: it.baseServingGrams,
+            savedFoodId: it.savedFoodId,
+          })),
         }),
       });
       setLogged(true);
@@ -523,24 +548,16 @@ export default function SmartLogPage() {
                   <p className="text-xs text-muted-foreground mt-0.5">Per {selected.servingDescription}</p>
                 )}
               </div>
-              <button onClick={() => { setSelected(null); setSelectedSource(null); }} className="shrink-0 h-7 w-7 rounded-full bg-white border border-border flex items-center justify-center">
+              <button onClick={() => { setSelected(null); setSelectedSource(null); setItems([]); }} className="shrink-0 h-7 w-7 rounded-full bg-white border border-border flex items-center justify-center">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Per serving — tap to fix</p>
-                {(parseFloat(servings) || 1) !== 1 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    ×{parseFloat(servings) || 1} = {Math.round(selected.calories * (parseFloat(servings) || 1))} cal total
-                  </p>
-                )}
-              </div>
-              <EditableMacros
-                item={selected}
-                onChange={(patch) => setSelected((s) => (s ? { ...s, ...patch } : s))}
-              />
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                {items.length > 1 ? "Items — tap to fix" : "Tap to fix"}
+              </p>
+              <ItemsEditor items={items} onChange={setItems} />
             </div>
 
             <div className="space-y-1.5">
@@ -557,33 +574,20 @@ export default function SmartLogPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Servings</Label>
-                <Input
-                  type="number"
-                  value={servings}
-                  onChange={(e) => setServings(e.target.value)}
-                  min="0.25"
-                  step="0.25"
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Meal type</Label>
-                <select
-                  value={mealType}
-                  onChange={(e) => setMealType(e.target.value)}
-                  className="h-9 w-full rounded-xl border border-border bg-input px-3 text-sm capitalize focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {MEAL_TYPES.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
-                </select>
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Meal type</Label>
+              <select
+                value={mealType}
+                onChange={(e) => setMealType(e.target.value)}
+                className="h-9 w-full rounded-xl border border-border bg-input px-3 text-sm capitalize focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {MEAL_TYPES.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
+              </select>
             </div>
 
             <Button onClick={handleLog} disabled={logging} className="w-full h-12 font-bold">
               {logging ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-              Log {Math.round(selected.calories * (parseFloat(servings) || 1))} kcal
+              Log {itemsTotal(items).calories} kcal
             </Button>
           </motion.div>
         )}
@@ -624,52 +628,6 @@ function NutritionPills({ item, servings = 1, className }: { item: NutritionResu
           {p.value} <span className="font-medium opacity-70">{p.label}</span>
         </span>
       ))}
-    </div>
-  );
-}
-
-const MACRO_FIELDS: { key: MacroField; label: string; suffix: string; color: string }[] = [
-  { key: "calories", label: "cal", suffix: "", color: "bg-primary/10 text-primary" },
-  { key: "proteinG", label: "protein", suffix: "g", color: "bg-accent/10 text-accent" },
-  { key: "carbsG", label: "carbs", suffix: "g", color: "bg-carbs/10 text-carbs" },
-  { key: "fatG", label: "fat", suffix: "g", color: "bg-fat/10 text-fat" },
-];
-
-function EditableMacros({ item, onChange }: { item: NutritionResult; onChange: (patch: Partial<NutritionResult>) => void }) {
-  const [editing, setEditing] = useState<MacroField | null>(null);
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {MACRO_FIELDS.map((f) => {
-        const value = Math.round((item[f.key] as number) * 10) / 10;
-        if (editing === f.key) {
-          return (
-            <span key={f.key} className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ring-2 ring-primary/50", f.color)}>
-              <input
-                autoFocus
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="any"
-                defaultValue={value}
-                onFocus={(e) => e.target.select()}
-                onBlur={(e) => { onChange({ [f.key]: Math.max(0, parseFloat(e.target.value) || 0) }); setEditing(null); }}
-                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                className="w-11 bg-transparent outline-none text-xs font-bold tabular-nums"
-              />
-              <span className="font-medium opacity-70">{f.label}</span>
-            </span>
-          );
-        }
-        return (
-          <button
-            key={f.key}
-            onClick={() => setEditing(f.key)}
-            className={cn("px-2 py-0.5 rounded-full text-xs font-bold transition-shadow hover:ring-2 hover:ring-primary/30 active:ring-2 active:ring-primary/40", f.color)}
-          >
-            {value}{f.suffix} <span className="font-medium opacity-70">{f.label}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }

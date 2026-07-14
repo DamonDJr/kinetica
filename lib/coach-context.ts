@@ -69,6 +69,12 @@ export type CoachContext = {
       debtSeverity: "none" | "mild" | "moderate" | "severe";
     };
     insights7d: Array<{ type: string; content: string; createdAt: Date }>;
+    journal14d: {
+      entriesLogged: number;
+      avgMood: number | null;
+      wins: Array<{ content: string; context: string; loggedAt: Date }>;
+      latestEntries: Array<{ content: string; mood: number; context: string; isWin: boolean; loggedAt: Date }>;
+    };
   };
   program: {
     id: string;
@@ -208,6 +214,7 @@ export async function buildCoachContext(profileId: string, now: Date = new Date(
     workouts14d,
     sleep7d,
     insights7d,
+    journal14d,
     program,
     measurements90d,
   ] = await Promise.all([
@@ -246,6 +253,12 @@ export async function buildCoachContext(profileId: string, now: Date = new Date(
       orderBy: { createdAt: "desc" },
       take: 20,
       select: { type: true, content: true, createdAt: true },
+    }),
+    db.journalEntry.findMany({
+      where: { profileId, loggedAt: { gte: fourteenDaysAgo } },
+      orderBy: { loggedAt: "desc" },
+      take: 30,
+      select: { content: true, mood: true, context: true, isWin: true, loggedAt: true },
     }),
     profile.activeProgramId
       ? db.workoutProgram.findUnique({
@@ -416,6 +429,24 @@ export async function buildCoachContext(profileId: string, now: Date = new Date(
         debtSeverity: sleepDebt.severity,
       },
       insights7d: insights7d.map((i) => ({ type: i.type, content: i.content, createdAt: i.createdAt })),
+      journal14d: {
+        entriesLogged: journal14d.length,
+        avgMood:
+          journal14d.length > 0
+            ? +(journal14d.reduce((s, j) => s + j.mood, 0) / journal14d.length).toFixed(2)
+            : null,
+        wins: journal14d
+          .filter((j) => j.isWin)
+          .slice(0, 5)
+          .map((j) => ({ content: j.content, context: j.context, loggedAt: j.loggedAt })),
+        latestEntries: journal14d.slice(0, 5).map((j) => ({
+          content: j.content,
+          mood: j.mood,
+          context: j.context,
+          isWin: j.isWin,
+          loggedAt: j.loggedAt,
+        })),
+      },
     },
     program: programCtx,
     measurements: {

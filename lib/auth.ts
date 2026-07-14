@@ -21,8 +21,10 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [
-    process.env.NEXTAUTH_URL ?? "http://localhost:3000",
+    process.env.NEXTAUTH_URL ?? "",
     process.env.TAILSCALE_URL ?? "",
+    // Plain `next dev` runs on localhost regardless of the URLs above.
+    "http://localhost:3000",
   ].filter(Boolean),
 });
 

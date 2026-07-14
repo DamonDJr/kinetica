@@ -15,7 +15,9 @@ export function profileBmr(profile: {
   heightCm: number | null;
   age: number | null;
   gender: string | null;
+  bmrOverride?: number | null;
 }): number | null {
+  if (profile.bmrOverride) return profile.bmrOverride;
   if (!profile.weightKg || !profile.heightCm || !profile.age) return null;
   return calcBmr(profile.weightKg, profile.heightCm, profile.age, profile.gender);
 }

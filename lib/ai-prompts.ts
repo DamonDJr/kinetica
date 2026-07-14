@@ -17,6 +17,7 @@ function formatHeight(totalInches: number | null): string {
 
 export function buildProfileContext(profile: Profile): string {
   const conditions = parseJson<string[]>(profile.conditions, []);
+  const injuries = parseJson<string[]>(profile.injuries, []);
   const equipment = parseJson<string[]>(profile.equipment, []);
   const goals = parseGoals(profile.fitnessGoals);
   const restrictions = parseJson<string[]>(profile.restrictions, []);
@@ -25,24 +26,44 @@ export function buildProfileContext(profile: Profile): string {
   return `
 User: ${profile.displayName}, age ${profile.age ?? "unknown"}, ${profile.gender ?? "unspecified"}.
 Height: ${formatHeight(profile.heightCm)}, Weight: ${profile.weightKg ?? "unknown"} lbs, goal: ${profile.goalWeightKg ?? "unknown"} lbs.
-Activity level: ${profile.activityLevel}.
+Activity level: ${profile.activityLevel}. Streak: ${profile.streakDays} days.
 Health conditions: ${conditions.length ? conditions.join(", ") : "none reported"}.
+Injuries: ${injuries.length ? injuries.join(", ") : "none reported"}.
 Equipment: ${equipment.length ? equipment.join(", ") : "bodyweight only"}.
 Fitness goals: ${formatGoalsForPrompt(goals)}.
-Dietary restrictions: ${restrictions.length ? restrictions.join(", ") : "none"}.
+Daily targets: ${profile.calorieTarget ?? "?"} kcal, ${profile.proteinTargetG ?? "?"}g protein.
+Dietary restrictions: ${restrictions.length ? restrictions.join(", ") : "none"}.${
+    profile.goalPhotoDescription
+      ? `\nBody goal reference photo: ${profile.goalPhotoDescription}${
+          profile.goalPhotoNotes ? ` User's own note on it: "${profile.goalPhotoNotes}"` : ""
+        }`
+      : ""
+  }
 `.trim();
 }
 
 export const SYSTEM_COACH = `
-You are Kinetica, a warm, supportive fitness and wellness coach for a family health app.
-Your tone is encouraging, calm, and human — never clinical, never shaming.
-You never diagnose medical conditions. For pain or injuries, always recommend consulting a professional.
-You always consider health conditions when making recommendations.
-For ADHD: keep advice short, varied, dopamine-rewarding.
-For POTS: recommend seated alternatives, hydration reminders, pacing.
-For hEDS/hypermobility: avoid high-impact, prioritize stabilization and controlled range of motion.
-For chronic fatigue: validate rest as part of training, not failure.
-Always celebrate effort over outcome.
+You are Kinetica, the AI coach inside a family fitness app. You coach like an experienced personal trainer who knows this user's history and genuinely wants them to reach their goals — not like a generic wellness bot.
+
+COACHING PRINCIPLES
+1. Coach toward the user's stated goals. Every recommendation should visibly connect to a goal they set. If their recent behavior is drifting away from a goal, name it — gently, but clearly.
+2. Be specific and evidence-based. Cite the user's actual numbers (grams, pounds, sessions, hours) from the data you're given. "You averaged 92g protein against a 150g target" beats "try to eat more protein." Never invent numbers that aren't in the data.
+3. Celebrate real wins loudly and by name — specificity is what makes praise land. But never manufacture praise for things that didn't happen; honest assessment is what makes the celebration mean something.
+4. Favor progressive overload and sustainable habits: one small, concrete next step the user can take today. No overhauls, no lists of five changes at once.
+5. When the data shows a plateau or a slide, say so plainly and offer one corrective action. Frame it with curiosity ("let's figure out what's in the way"), never blame.
+
+SAFETY & CONDITIONS
+- You never diagnose medical conditions. For pain or injuries, always recommend consulting a professional.
+- Always adapt recommendations to the user's listed health conditions and injuries:
+  - ADHD: keep advice short, novel, dopamine-rewarding; one action at a time.
+  - POTS: seated alternatives, hydration + electrolyte reminders, pacing.
+  - hEDS/hypermobility: avoid high-impact and ballistic loading; prioritize stabilization and controlled range of motion.
+  - Chronic fatigue: rest is part of training, not failure; never push through crashes.
+
+VOICE
+- Warm, calm, human. Never clinical, never shaming, never corporate.
+- Address the user by name when it feels natural.
+- Celebrate effort AND direction: the goal is true growth toward what they said they want, not activity for its own sake.
 `.trim();
 
 export function workoutPlanPrompt(profile: Profile, opts: {
@@ -123,6 +144,15 @@ function fmtTime(d: Date | null): string {
   return `${Math.round(hrs / 24)}d ago`;
 }
 
+function formatJournalBlock(journal: CoachContext["recent"]["journal14d"]): string {
+  if (journal.entriesLogged === 0) return "no journal entries recently";
+  const wins = journal.wins.length
+    ? `Recent wins they logged: ${journal.wins.map((w) => `"${w.content.slice(0, 120)}" (${w.context}, ${fmtTime(w.loggedAt)})`).join("; ")}.`
+    : "No wins logged recently.";
+  const latest = journal.latestEntries[0];
+  return `${journal.entriesLogged} entries in 14d, avg mood ${journal.avgMood}/5. Latest: "${latest.content.slice(0, 140)}" (mood ${latest.mood}/5, ${latest.context}, ${fmtTime(latest.loggedAt)}). ${wins}`;
+}
+
 export function nudgeDecisionPrompt(ctx: CoachContext) {
   const { profile, targets, today, recent, program, measurements } = ctx;
   const proteinPct = targets.proteinG ? Math.round((today.meals.totals.proteinG / targets.proteinG) * 100) : null;
@@ -165,6 +195,7 @@ TODAY (${today.date}):
 - Workouts last 14d: ${recent.workouts14d.count}. Last workout: ${fmtTime(recent.workouts14d.lastWorkoutAt)}.
 - Sleep: ${sleepLine}.
 - Body: ${measurementSummary}.
+- Journal/mood: ${formatJournalBlock(recent.journal14d)}
 
 PROGRAM: ${program ? `${program.name} (${program.daysPerWeek}/wk). Next session: ${program.nextSession?.name ?? "all done"}.` : "no active program"}
 
@@ -180,7 +211,7 @@ Decide: should we send a push notification right now? Be selective — only nudg
 - Pattern is normal/healthy
 - It would feel naggy
 
-Tie the message to a specific pattern from above (e.g., "you skip breakfast 5/7 days and you're 40g under protein"). Keep body under 110 chars. Title under 30 chars. No emojis required, but okay if they fit.
+Tie the message to a specific pattern from above (e.g., "you skip breakfast 5/7 days and you're 40g under protein"). If they logged a recent win or their mood is trending up, you can build a nudge on that momentum ("you said the deadlift PR felt great — Pull day is queued up"). If mood is trending low, soften the ask: suggest the smallest useful action, not a full session. Keep body under 110 chars. Title under 30 chars. No emojis required, but okay if they fit.
 
 Return JSON:
 {
@@ -293,7 +324,7 @@ Return JSON only:
 }
 
 export function measurementInsightPrompt(ctx: CoachContext) {
-  const { profile, targets, today, recent, measurements } = ctx;
+  const { profile, targets, recent, measurements } = ctx;
   if (!measurements.latest) {
     throw new Error("measurementInsightPrompt requires at least one measurement");
   }
@@ -325,12 +356,14 @@ NUTRITION (7d avg):
 - Protein ${recent.meals7d.avgProteinPerDay}g/${targets.proteinG ?? "?"}g target.
 
 TRAINING (14d): ${recent.workouts14d.count} sessions logged.
+JOURNAL: ${formatJournalBlock(recent.journal14d)}
 
 Generate 2-3 specific, actionable insights based on the trends. Look for:
 - Recomp signals (e.g., waist down, weight flat → losing fat, gaining muscle)
 - Plateaus (e.g., no change in 30d on a target metric)
 - Goal alignment (are trends pointing toward their stated goals?)
 - Nutrition connection (is protein supporting their measurement goals?)
+- Mood connection (if journal mood tracks with training/eating patterns, or a logged win deserves reinforcing with the numbers that back it up)
 
 Each insight: lead with the observation, then a concrete next step. No medical advice.
 
@@ -589,6 +622,35 @@ Return JSON only:
   "getReadyAt": "HH:MM",
   "reasoning": "short string the user will read"
 }
+`.trim();
+
+  return { system: SYSTEM_COACH, user };
+}
+
+export function journalReplyPrompt(
+  profile: Profile,
+  entry: { content: string; mood: number; energy: number | null; context: string; isWin: boolean },
+  recentWins: Array<{ content: string; loggedAt: Date }>,
+) {
+  const winsLine = recentWins.length
+    ? `Other wins they logged recently: ${recentWins.map((w) => `"${w.content.slice(0, 100)}" (${fmtTime(w.loggedAt)})`).join("; ")}.`
+    : "";
+
+  const user = `
+${buildProfileContext(profile)}
+
+${profile.displayName} just wrote a journal entry${entry.context !== "general" ? ` right after a ${entry.context === "weigh-in" ? "weigh-in" : entry.context}` : ""}:
+
+"${entry.content.slice(0, 1500)}"
+
+Mood: ${entry.mood}/5.${entry.energy != null ? ` Energy: ${entry.energy}/5.` : ""}${entry.isWin ? " They marked this as a WIN. 🏆" : ""}
+${winsLine}
+
+Write a short coach reply (1-3 sentences, under 60 words) they'll see right under their entry.
+- If it's a win: celebrate it specifically — name what they did and, if it connects to one of their goals, say how it moves them toward it. Make it feel earned, not generic.
+- If mood is low (1-2): validate first, no toxic positivity. Offer at most one tiny doable step, or just permission to rest if that's what the entry calls for.
+- If they mention pain or injury, gently suggest a professional — never diagnose.
+- Speak directly to ${profile.displayName}. Plain text only, no JSON, no markdown, no quotes around the reply.
 `.trim();
 
   return { system: SYSTEM_COACH, user };

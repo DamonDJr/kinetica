@@ -64,12 +64,23 @@ function labelSvg(width: number, text: string): Buffer {
 // Composites the two photos side by side (oldest left, newest right) with
 // date banners burned in, so the vision model gets one image with the
 // before/after relationship visually unambiguous.
+//
+// Kept deliberately small: local vision models (llama.cpp mtmd) tokenize
+// images into a number of patches proportional to pixel count, and decode
+// them as a single non-causal batch. If that patch count exceeds the
+// server's --ubatch-size, llama.cpp hits a hard GGML_ASSERT and SIGABRTs the
+// whole process (not just the request) — so this has to stay conservative
+// rather than sized for visual quality.
 export async function stitchBeforeAfter(
   oldest: { data: Buffer; label: string },
   newest: { data: Buffer; label: string }
 ): Promise<Buffer> {
-  const HEIGHT = 768;
-  const GAP = 6;
+  const HEIGHT = 384;
+  const GAP = 4;
+  // Absolute ceiling on the composite regardless of source aspect ratio —
+  // panel height alone doesn't bound width for unusually wide source photos.
+  const MAX_WIDTH = 640;
+  const MAX_HEIGHT = 384;
 
   const [left, right] = await Promise.all(
     [oldest.data, newest.data].map((buf) =>
@@ -78,7 +89,7 @@ export async function stitchBeforeAfter(
   );
 
   const width = left.info.width + GAP + right.info.width;
-  return sharp({
+  const composite = await sharp({
     create: { width, height: HEIGHT, channels: 3, background: { r: 20, g: 20, b: 24 } },
   })
     .composite([
@@ -87,6 +98,11 @@ export async function stitchBeforeAfter(
       { input: labelSvg(left.info.width, `BEFORE — ${oldest.label}`), left: 0, top: HEIGHT - 44 },
       { input: labelSvg(right.info.width, `AFTER — ${newest.label}`), left: left.info.width + GAP, top: HEIGHT - 44 },
     ])
+    .jpeg({ quality: 85 })
+    .toBuffer();
+
+  return sharp(composite)
+    .resize(MAX_WIDTH, MAX_HEIGHT, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 85 })
     .toBuffer();
 }

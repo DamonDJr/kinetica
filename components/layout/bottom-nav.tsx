@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Dumbbell, Apple, User } from "lucide-react";
+import { LayoutDashboard, Dumbbell, Apple, PenLine, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -9,6 +9,7 @@ const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/workouts", label: "Train", icon: Dumbbell },
   { href: "/nutrition", label: "Fuel", icon: Apple },
+  { href: "/journal", label: "Journal", icon: PenLine },
   { href: "/profile", label: "You", icon: User },
 ];
 
@@ -23,7 +24,7 @@ export function BottomNav() {
           return (
             <Link key={href} href={href} className="relative">
               <div className={cn(
-                "relative flex flex-col items-center gap-0.5 px-5 py-2.5 rounded-full transition-all duration-200",
+                "relative flex flex-col items-center gap-0.5 px-4 py-2.5 rounded-full transition-all duration-200",
                 isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
               )}>
                 {isActive && (

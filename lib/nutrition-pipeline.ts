@@ -11,6 +11,9 @@ export type NutritionItem = {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  servingAmount: number;
+  servingUnit: string;
+  servingGrams?: number;
 };
 
 export type NutritionEstimate = {
@@ -74,6 +77,7 @@ METHOD for composed / homemade meals (no product candidates):
    - When the user gives a COUNT of a discrete item (e.g. "3 slices of pepperoni", "2 eggs"), value exactly that many pieces — multiply the per-piece value by the count. NEVER substitute a standard package/ounce serving for an explicit count. 3 slices of pepperoni is ~15 cal, NOT a 1 oz serving.
 2. Account for cooking: raw ground meat loses ~25% of its weight when cooked (a raw "1/4 lb" / 4 oz patty becomes ~3 oz cooked).
 3. Output every component with its own macros, then totals that are the exact sum of the components.
+4. For each component, also state the household serving you valued it at (servingAmount + servingUnit, e.g. 3 + "slice") and your best-estimate total gram weight for that amount (servingGrams) — use the same per-piece reference weights implied above (e.g. a pizza-style pepperoni slice ≈1g, a cheese slice ≈20g, a bagel ≈95g, a cooked oz of meat ≈28g) so the user can later re-scale the item by weight.
 
 DATA PRECEDENCE (most to least trusted):
 1. The user's OWN saved foods, when a component matches one — these are values the user has confirmed, use them as-is (scaled to the stated amount).
@@ -126,7 +130,7 @@ const JSON_SCHEMA = `{
   "name": "string — short name for the whole meal",
   "servingDescription": "string — what this total covers, e.g. '1 cheeseburger as described'",
   "items": [
-    { "name": "string — one component, incl. its quantity e.g. '3 oz cooked 80/20 beef'", "calories": number, "proteinG": number, "carbsG": number, "fatG": number }
+    { "name": "string — one component, incl. its quantity e.g. '3 oz cooked 80/20 beef'", "calories": number, "proteinG": number, "carbsG": number, "fatG": number, "servingAmount": "number — the household count this item's macros are FOR, e.g. 3 for '3 slices pepperoni'", "servingUnit": "string — the unit for servingAmount, e.g. 'slice', 'oz', 'cup', 'piece'", "servingGrams": "number — your best-estimate total gram weight of servingAmount of this item" }
   ],
   "calories": number,
   "proteinG": number,

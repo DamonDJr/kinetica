@@ -3,6 +3,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
+type MealItem = {
+  id: string;
+  name: string;
+  calories: number;
+  servingAmount: number;
+  servingUnit: string;
+};
+
 type Meal = {
   id: string;
   name: string;
@@ -11,6 +19,7 @@ type Meal = {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  items?: MealItem[];
 };
 
 export function MealList({ meals }: { meals: Meal[] }) {
@@ -57,6 +66,13 @@ export function MealList({ meals }: { meals: Meal[] }) {
                     <p className="text-xs text-muted-foreground">
                       P: {Math.round(meal.proteinG)}g · C: {Math.round(meal.carbsG)}g · F: {Math.round(meal.fatG)}g
                     </p>
+                    {meal.items && meal.items.length > 1 && (
+                      <p className="text-[11px] text-muted-foreground/80 truncate mt-0.5">
+                        {meal.items
+                          .map((it) => (it.servingAmount && it.servingAmount !== 1 ? `${it.servingAmount}${it.servingUnit ? ` ${it.servingUnit}` : "×"} ${it.name}` : it.name))
+                          .join(" · ")}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-sm font-semibold text-muted-foreground">{meal.calories}</span>

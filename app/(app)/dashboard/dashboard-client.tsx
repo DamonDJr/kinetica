@@ -217,6 +217,9 @@ export function DashboardClient({ profile, today, activePlan, activeProgram, ins
         <Button asChild variant="outline" className="h-12 rounded-xl font-semibold">
           <Link href="/nutrition"><Droplets className="h-4 w-4 mr-2 text-accent" />Log Water</Link>
         </Button>
+        <Button asChild variant="outline" className="h-12 rounded-xl font-semibold col-span-2">
+          <Link href="/journal"><Trophy className="h-4 w-4 mr-2 text-amber-500" />How are you feeling? Log a win</Link>
+        </Button>
       </div>
     </div>
   );

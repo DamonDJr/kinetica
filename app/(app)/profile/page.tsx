@@ -39,7 +39,7 @@ export default async function ProfilePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Profile</h1>
         <Button asChild size="sm" variant="ghost">
-          <Link href="/onboarding"><Edit2 className="h-4 w-4 mr-1" /> Edit</Link>
+          <Link href="/profile/edit"><Edit2 className="h-4 w-4 mr-1" /> Edit</Link>
         </Button>
       </div>
 

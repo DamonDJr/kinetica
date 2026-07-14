@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,7 +31,13 @@ const DETAIL_HINTS: Record<string, string> = {
   "Family Fitness": "Who's involved? Any shared goals or constraints?",
 };
 
-export function GoalsEditor({ initialGoals }: { initialGoals: FitnessGoal[] }) {
+export function GoalsEditor({
+  initialGoals,
+  photoCard,
+}: {
+  initialGoals: FitnessGoal[];
+  photoCard?: ReactNode;
+}) {
   const router = useRouter();
   const [goals, setGoals] = useState<FitnessGoal[]>(initialGoals);
   const [expandedLabel, setExpandedLabel] = useState<string | null>(
@@ -120,6 +126,8 @@ export function GoalsEditor({ initialGoals }: { initialGoals: FitnessGoal[] }) {
           "focus on handstand press and pistol squats". The AI uses these details when building your plans.
         </p>
       </div>
+
+      {photoCard}
 
       {/* Preset chips */}
       <div>

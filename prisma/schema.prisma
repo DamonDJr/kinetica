@@ -67,6 +67,7 @@ model Profile {
   heightCm         Float?
   weightKg         Float?
   goalWeightKg     Float?
+  bmrOverride      Int?
   activityLevel    String    @default("moderate")
   conditions       String    @default("[]")
   injuries         String    @default("[]")
@@ -97,6 +98,11 @@ model Profile {
   lastSmartNudgeAt      DateTime?
   wakeTimeGoal          String?
   sleepGoalHours        Float     @default(8)
+  goalPhotoFileName     String?
+  goalPhotoWidth        Int?
+  goalPhotoHeight       Int?
+  goalPhotoNotes        String?
+  goalPhotoDescription  String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -112,6 +118,25 @@ model Profile {
   pushSubscription PushSubscription?
   aiInsights       AiInsight[]
   programs         WorkoutProgram[]
+  journalEntries   JournalEntry[]
+}
+
+// Free-form "how I'm feeling" journal. Entries can be tied to a moment
+// (post-workout, weigh-in, meal, sleep) and flagged as wins — the coach
+// context surfaces recent wins so the AI can celebrate and build on them.
+model JournalEntry {
+  id         String   @id @default(cuid())
+  profileId  String
+  content    String
+  mood       Int      @default(3) // 1-5, 5 = great
+  energy     Int? // 1-5 optional
+  context    String   @default("general") // general | workout | weigh-in | meal | sleep
+  isWin      Boolean  @default(false)
+  coachReply String? // short AI coach reflection, generated on save
+  loggedAt   DateTime @default(now())
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, loggedAt])
 }
 
 model WorkoutProgram {
@@ -189,34 +214,67 @@ model WorkoutLog {
 }
 
 model MealLog {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   profileId String
-  mealType  String   @default("other")
+  mealType  String        @default("other")
   name      String
-  calories  Int      @default(0)
-  proteinG  Float    @default(0)
-  carbsG    Float    @default(0)
-  fatG      Float    @default(0)
+  calories  Int           @default(0)
+  proteinG  Float         @default(0)
+  carbsG    Float         @default(0)
+  fatG      Float         @default(0)
   notes     String?
-  loggedAt  DateTime @default(now())
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  loggedAt  DateTime      @default(now())
+  profile   Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  items     MealLogItem[]
+}
+
+// One component of a logged meal (e.g. bagel / cheese / pepperoni within a
+// "pepperoni bagel melt"). `base*` fields are the reference "per one serving"
+// macros + serving size that the serving-size math (lib/serving-math.ts)
+// scales from; the non-base fields are the current, possibly hand-edited,
+// values actually logged.
+model MealLogItem {
+  id                String     @id @default(cuid())
+  mealLogId         String
+  name              String
+  calories          Int        @default(0)
+  proteinG          Float      @default(0)
+  carbsG            Float      @default(0)
+  fatG              Float      @default(0)
+  servingAmount     Float      @default(1)
+  servingUnit       String     @default("")
+  servingGrams      Float?
+  baseCalories      Int        @default(0)
+  baseProteinG      Float      @default(0)
+  baseCarbsG        Float      @default(0)
+  baseFatG          Float      @default(0)
+  baseServingAmount Float      @default(1)
+  baseServingGrams  Float?
+  savedFoodId       String?
+  sortOrder         Int        @default(0)
+  mealLog           MealLog    @relation(fields: [mealLogId], references: [id], onDelete: Cascade)
+  savedFood         SavedFood? @relation(fields: [savedFoodId], references: [id], onDelete: SetNull)
 }
 
 model SavedFood {
-  id                 String   @id @default(cuid())
+  id                 String        @id @default(cuid())
   profileId          String
   name               String
   brand              String?
-  servingDescription String   @default("")
-  calories           Int      @default(0)
-  proteinG           Float    @default(0)
-  carbsG             Float    @default(0)
-  fatG               Float    @default(0)
-  source             String   @default("ai")
-  useCount           Int      @default(1)
-  lastUsedAt         DateTime @default(now())
-  createdAt          DateTime @default(now())
-  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  servingDescription String        @default("")
+  servingAmount      Float         @default(1)
+  servingUnit        String        @default("")
+  servingGrams       Float?
+  calories           Int           @default(0)
+  proteinG           Float         @default(0)
+  carbsG             Float         @default(0)
+  fatG               Float         @default(0)
+  source             String        @default("ai")
+  useCount           Int           @default(1)
+  lastUsedAt         DateTime      @default(now())
+  createdAt          DateTime      @default(now())
+  profile            Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  items              MealLogItem[]
 
   @@unique([profileId, name, servingDescription])
   @@index([profileId, lastUsedAt])
