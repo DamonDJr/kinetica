@@ -320,7 +320,7 @@ struct LogMealView: View {
             name: name,
             mealType: mealType.rawValue,
             notes: nil,
-            date: APIClient.dayString(date),
+            date: APIClient.backdateParam(date),
             items: items.map { row in
                 var copy = row
                 if copy.name.trimmingCharacters(in: .whitespaces).isEmpty { copy.name = name }

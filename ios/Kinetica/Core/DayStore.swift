@@ -14,11 +14,28 @@ final class DayStore: ObservableObject {
 
     private let api = APIClient.shared
 
+    /// Whether `date` means "today" or a day the user deliberately navigated
+    /// to. Only the former should roll forward on its own.
+    private var followsToday: Bool
+
     init(date: Date = Date()) {
         self.date = date
+        self.followsToday = Calendar.current.isDateInToday(date)
     }
 
     var isToday: Bool { Calendar.current.isDateInToday(date) }
+
+    /// `date` is captured once when the store is created, so an app that sits
+    /// in memory across midnight keeps showing — and logging to — yesterday.
+    /// Call this whenever the app comes back to the foreground.
+    ///
+    /// Returns true if the day moved, so the caller knows to reload.
+    @discardableResult
+    func rollOverIfNeeded() -> Bool {
+        guard followsToday, !Calendar.current.isDateInToday(date) else { return false }
+        date = Date()
+        return true
+    }
 
     func shift(days: Int) {
         guard let next = Calendar.current.date(byAdding: .day, value: days, to: date) else { return }
@@ -26,6 +43,7 @@ final class DayStore: ObservableObject {
         // to "now" anyway, so offering the day would be a lie.
         if next > Date() && !Calendar.current.isDateInToday(next) { return }
         date = next
+        followsToday = Calendar.current.isDateInToday(next)
         Task { await load() }
     }
 

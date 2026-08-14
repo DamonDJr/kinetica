@@ -219,6 +219,17 @@ final class APIClient {
         return formatter.string(from: noon)
     }
 
+    /// Day param for a *write*, or nil when the entry belongs to today.
+    ///
+    /// The API pins any date it's given to 12:00 (so back-dated entries land
+    /// inside the right day window regardless of timezone). That's correct for
+    /// back-dating and wrong for logging now — passing today's date stamps the
+    /// meal 12:00 instead of when it was actually eaten. Omitting the key lets
+    /// the column default to `now()`.
+    static func backdateParam(_ date: Date) -> String? {
+        Calendar.current.isDateInToday(date) ? nil : dayString(date)
+    }
+
     /// Day param for *write* bodies, which the API matches as `YYYY-MM-DD` and
     /// pins to noon server-side itself.
     static func dayString(_ date: Date) -> String {
@@ -420,7 +431,7 @@ final class APIClient {
         try await send(
             "api/nutrition",
             method: "POST",
-            body: WaterPayload(amountMl: ml, date: APIClient.dayString(date)),
+            body: WaterPayload(amountMl: ml, date: APIClient.backdateParam(date)),
             as: OKEnvelope.self
         )
     }
