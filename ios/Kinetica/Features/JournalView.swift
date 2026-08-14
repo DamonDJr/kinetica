@@ -270,7 +270,7 @@ struct JournalComposeView: View {
                         .foregroundColor(.kEmber)
                 }
 
-                Button(action: save) {
+                Button(action: { save() }) {
                     HStack(spacing: 8) {
                         if isSaving { ProgressView().tint(Color.bone) }
                         Text(isSaving ? "Saving" : "Save entry")

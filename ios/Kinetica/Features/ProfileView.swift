@@ -49,7 +49,7 @@ struct ProfileView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .navigationViewStyle(.stack)
-        .onAppear(perform: fillFromProfile)
+        .onAppear { fillFromProfile() }
         .onChange(of: state.profile?.id) { _ in fillFromProfile() }
     }
 
@@ -190,7 +190,7 @@ struct ProfileView: View {
                         .foregroundColor(.kEmber)
                 }
 
-                Button(action: save) {
+                Button(action: { save() }) {
                     HStack(spacing: 8) {
                         if isSaving { ProgressView().tint(Color.bone) }
                         Text(savedFlash ? "Saved" : (isSaving ? "Saving" : "Save"))
@@ -292,15 +292,19 @@ struct ProfileView: View {
         )
 
         Task { @MainActor in
-            defer { isSaving = false }
+            // `defer` bodies don't inherit an explicitly-annotated Task
+            // closure's actor isolation on Swift 5.5, so the flag is
+            // cleared on each path instead.
             do {
                 _ = try await api.updateBasics(basics)
                 await state.loadProfile()
                 Haptics.logged()
+                isSaving = false
                 savedFlash = true
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 savedFlash = false
             } catch {
+                isSaving = false
                 errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
                 Haptics.failed()
             }

@@ -297,7 +297,12 @@ struct DashboardView: View {
             hasPulsed = true
             Haptics.earned()
             withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { pulse = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Task rather than DispatchQueue.asyncAfter: the delayed work
+            // mutates isolated view state, and a Task keeps it plainly on the
+            // main actor instead of relying on how Dispatch's closures are
+            // audited for concurrency in this SDK.
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 300_000_000)
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { pulse = false }
             }
         }

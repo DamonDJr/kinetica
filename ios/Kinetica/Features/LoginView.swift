@@ -57,7 +57,7 @@ struct LoginView: View {
                         .padding(.top, 12)
                 }
 
-                Button(action: submit) {
+                Button(action: { submit() }) {
                     HStack(spacing: 8) {
                         if state.isSigningIn {
                             ProgressView().tint(Color.bone)

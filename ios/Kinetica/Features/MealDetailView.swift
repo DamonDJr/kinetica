@@ -83,7 +83,7 @@ struct MealDetailView: View {
                     }
                 }
 
-                Button(action: save) {
+                Button(action: { save() }) {
                     HStack(spacing: 8) {
                         if isSaving { ProgressView().tint(Color.bone) }
                         Text(isSaving ? "Saving" : "Save changes")
@@ -171,13 +171,17 @@ struct MealDetailView: View {
         )
 
         Task { @MainActor in
-            defer { isSaving = false }
+            // `defer` bodies don't inherit an explicitly-annotated Task
+            // closure's actor isolation on Swift 5.5, so the flag is
+            // cleared on each path instead.
             do {
                 _ = try await api.updateMeal(payload)
                 Haptics.logged()
+                isSaving = false
                 onChanged()
                 dismiss()
             } catch {
+                isSaving = false
                 errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
                 Haptics.failed()
             }
@@ -188,12 +192,13 @@ struct MealDetailView: View {
         guard !isDeleting else { return }
         isDeleting = true
         Task { @MainActor in
-            defer { isDeleting = false }
             do {
                 try await api.deleteMeal(id: meal.id)
+                isDeleting = false
                 onChanged()
                 dismiss()
             } catch {
+                isDeleting = false
                 errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
                 Haptics.failed()
             }

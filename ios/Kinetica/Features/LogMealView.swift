@@ -97,7 +97,7 @@ struct LogMealView: View {
                     .onSubmit { analyze() }
                     .onChange(of: query) { next in scheduleSearch(next) }
 
-                Button(action: analyze) {
+                Button(action: { analyze() }) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(Color.bone)
@@ -171,7 +171,7 @@ struct LogMealView: View {
                     .foregroundColor(.kInkMuted)
             }
             Spacer()
-            Button(action: save) {
+            Button(action: { save() }) {
                 HStack(spacing: 8) {
                     if isSaving { ProgressView().tint(Color.bone) }
                     Text(isSaving ? "Logging" : "Log it")
@@ -285,7 +285,9 @@ struct LogMealView: View {
         stageLabel = nil
 
         Task { @MainActor in
-            defer { isAnalyzing = false }
+            // `defer` bodies don't inherit an explicitly-annotated Task
+            // closure's actor isolation on Swift 5.5, so the flag is
+            // cleared on each path instead.
             do {
                 let estimate = try await api.analyze(description: description) { label in
                     stageLabel = label
@@ -301,6 +303,7 @@ struct LogMealView: View {
                 errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
                 Haptics.failed()
             }
+            isAnalyzing = false
         }
     }
 
@@ -331,13 +334,17 @@ struct LogMealView: View {
         )
 
         Task { @MainActor in
-            defer { isSaving = false }
+            // `defer` bodies don't inherit an explicitly-annotated Task
+            // closure's actor isolation on Swift 5.5, so the flag is
+            // cleared on each path instead.
             do {
                 _ = try await api.logMeal(payload)
                 Haptics.logged()
+                isSaving = false
                 onLogged()
                 dismiss()
             } catch {
+                isSaving = false
                 errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
                 Haptics.failed()
             }
