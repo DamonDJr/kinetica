@@ -54,6 +54,7 @@
 		83AF3D3D879DF9450CBFCA30 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RootView.swift"; sourceTree = "<group>"; };
 		461A5A3F9FDD134BC064B0B7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info.plist"; sourceTree = "<group>"; };
 		F29C2E1FB0FE81B9C60BCD61 /* KineticaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KineticaApp.swift"; sourceTree = "<group>"; };
+		C24C0017E95932DC6BAB9956 /* AppIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon.png"; sourceTree = "<group>"; };
 		B6EAC77A573D6576E71ED89C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Assets.xcassets"; sourceTree = "<group>"; };
 		5CA0CA2A5591EC7EC61B18DA /* Fraunces-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-Medium.ttf"; sourceTree = "<group>"; };
 		5086AF937ED1D96156B0756E /* Fraunces-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-SemiBold.ttf"; sourceTree = "<group>"; };
@@ -142,6 +143,7 @@
 		5CB925814CB9D325B98F666D /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				C24C0017E95932DC6BAB9956 /* AppIcon.png */,
 				B6EAC77A573D6576E71ED89C /* Assets.xcassets */,
 				101E882C5D3030B6D15DA3BB /* Fonts */,
 			);

@@ -12,3 +12,8 @@ build/
 *.xcarchive
 
 .DS_Store
+
+# SwiftPM / xtool
+.build/
+xtool-build/
+.sourcekit-lsp/

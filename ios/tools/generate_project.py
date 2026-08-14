@@ -31,8 +31,10 @@ SWIFT_VERSION = "5.5"
 # the font travels inside the .ipa.
 RESOURCE_EXTENSIONS = {".xcassets", ".ttf", ".otf", ".png", ".json", ".txt"}
 SOURCE_EXTENSIONS = {".swift"}
-# Referenced by INFOPLIST_FILE, so it must not also sit in a build phase.
-EXCLUDED = {"Info.plist"}
+# Info.plist is referenced by INFOPLIST_FILE, so it must not also sit in a
+# build phase. AppIcon.png exists only for xtool, which derives its icon set
+# from a single PNG; Xcode gets the same artwork from the asset catalog.
+EXCLUDED = {"Info.plist", "AppIcon.png"}
 # Directories treated as a single file reference rather than descended into.
 OPAQUE_DIRS = {".xcassets"}
 

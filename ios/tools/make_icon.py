@@ -83,6 +83,12 @@ def main():
         resized.convert("RGB").save(os.path.join(ICONSET, name), "PNG")
         print("wrote", name, size)
 
+    # xtool takes a single 1024px PNG and derives the whole set itself, so it
+    # never needs the asset catalog (which would require macOS-only actool).
+    standalone = os.path.join(ROOT, "Kinetica", "Resources", "AppIcon.png")
+    master.convert("RGB").save(standalone, "PNG")
+    print("wrote AppIcon.png 1024 (xtool)")
+
 
 if __name__ == "__main__":
     main()
