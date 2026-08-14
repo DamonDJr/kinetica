@@ -33,12 +33,26 @@ blocker — the API endpoints all exist already.
 ## Build
 
 1. Open `ios/Kinetica.xcodeproj`.
-2. Select the **Kinetica** target → *Signing & Capabilities*.
-3. Set **Team** to your personal Apple ID team (Xcode → Preferences → Accounts →
-   add your Apple ID first). Leave signing on *Automatic*.
-4. If `com.damonj.kinetica` is rejected as taken, change the **Bundle
-   Identifier** to anything unique — it's only an identifier.
-5. Build.
+2. Leave **Team** set to *None* under *Signing & Capabilities*.
+3. Pick a **simulator** in the destination dropdown (iPhone 13, say) — not
+   *Any iOS Device*.
+4. Build and run.
+
+**Don't set a Team, and don't select a device destination, until you actually
+want the app on the phone.** The moment you do either, Xcode tries to mint a
+development provisioning profile, and on a free Apple ID with no iPhone it can
+talk to that fails with:
+
+> Failed to create provisioning profile. There are no devices registered in
+> your account on the developer website.
+
+That error says nothing about your code. Simulator builds aren't signed at all,
+so `Team: None` + a simulator destination compiles and runs the whole app with
+the signing machinery switched off entirely.
+
+The useful part: **you never need Xcode signing to work.** The sideloading route
+below has Sideloadly re-sign the app with your Apple ID and register the device
+itself, so Xcode's provisioning system stays out of it from start to finish.
 
 The app runs against `https://damonj-pc.tailcc1d47.ts.net:9879` by default. That's
 editable inside the app (on the login screen under *Server*, and later in the
@@ -69,19 +83,32 @@ that Xcode 13 doesn't speak at all, so no amount of copied files will help.
 
 The binary itself is fine on any modern iOS — apps built against old SDKs keep
 running, they just don't opt into newer system behaviours. It's only *Xcode's
-installer* that's too old. So bypass it:
+installer* that's too old. So bypass it.
 
-1. In Xcode: set the run destination to **Any iOS Device (arm64)**, then
-   *Product → Archive*.
-2. *Distribute App → Development → Export*, which writes a `Kinetica.ipa`.
-3. Install that `.ipa` with **Sideloadly** or **AltStore/SideStore**, both of
-   which bundle their own current device-communication libraries and run happily
-   on Big Sur.
+Don't reach for *Product → Archive*: archiving insists on a valid provisioning
+profile, which a free Apple ID can't produce without a device Xcode is able to
+register. Build **unsigned** instead and let Sideloadly do the signing — it
+handles device registration itself, so Xcode never has to:
 
-If Archive gives you trouble with a free account, the crude equivalent also
-works: build for a generic device, find `Kinetica.app` in `~/Library/Developer/
-Xcode/DerivedData/.../Build/Products/Debug-iphoneos/`, put it in a folder named
-`Payload/`, zip that folder, and rename the zip to `Kinetica.ipa`.
+```bash
+xcodebuild -project Kinetica.xcodeproj -scheme Kinetica \
+  -sdk iphoneos -configuration Release \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+  build
+```
+
+Then wrap the result as an `.ipa` — which is just a zip with the app inside a
+folder called `Payload`:
+
+```bash
+APP=$(find ~/Library/Developer/Xcode/DerivedData -name 'Kinetica.app' -path '*Release-iphoneos*' | head -1)
+mkdir -p /tmp/Payload && cp -R "$APP" /tmp/Payload/
+(cd /tmp && zip -qr ~/Desktop/Kinetica.ipa Payload && rm -rf Payload)
+```
+
+Drop `~/Desktop/Kinetica.ipa` onto **Sideloadly** (or **AltStore/SideStore**),
+enter your Apple ID, and let it sign and install. Both bundle their own current
+device-communication libraries and run happily on Big Sur.
 
 ### Free Apple ID caveats
 
