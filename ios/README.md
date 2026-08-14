@@ -85,30 +85,28 @@ The binary itself is fine on any modern iOS — apps built against old SDKs keep
 running, they just don't opt into newer system behaviours. It's only *Xcode's
 installer* that's too old. So bypass it.
 
-Don't reach for *Product → Archive*: archiving insists on a valid provisioning
-profile, which a free Apple ID can't produce without a device Xcode is able to
-register. Build **unsigned** instead and let Sideloadly do the signing — it
-handles device registration itself, so Xcode never has to:
+From the `ios` directory:
 
 ```bash
-xcodebuild -project Kinetica.xcodeproj -scheme Kinetica \
-  -sdk iphoneos -configuration Release \
-  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-  build
+./tools/build-ipa.sh
 ```
 
-Then wrap the result as an `.ipa` — which is just a zip with the app inside a
-folder called `Payload`:
+That writes `ios/Kinetica.ipa`. Drop it on **Sideloadly** (or
+**AltStore/SideStore**), enter your Apple ID, and let it sign and install. Both
+bundle their own current device-communication libraries and run happily on Big
+Sur. If the build fails the script prints the deduplicated compile errors rather
+than making you dig through the log.
 
-```bash
-APP=$(find ~/Library/Developer/Xcode/DerivedData -name 'Kinetica.app' -path '*Release-iphoneos*' | head -1)
-mkdir -p /tmp/Payload && cp -R "$APP" /tmp/Payload/
-(cd /tmp && zip -qr ~/Desktop/Kinetica.ipa Payload && rm -rf Payload)
-```
+Two things the script is working around, in case it ever needs changing:
 
-Drop `~/Desktop/Kinetica.ipa` onto **Sideloadly** (or **AltStore/SideStore**),
-enter your Apple ID, and let it sign and install. Both bundle their own current
-device-communication libraries and run happily on Big Sur.
+- It builds **unsigned** (`CODE_SIGNING_ALLOWED=NO`) because a free Apple ID
+  can only be issued a profile for a device Xcode has registered, and Xcode
+  13.2.1 can't talk to an iOS 16+ phone in order to register it. Sideloadly
+  signs the app and registers the device itself, so Xcode's provisioning system
+  is never involved.
+- It avoids *Product → Archive*, which fails on exactly that wall — archiving
+  insists on a valid provisioning profile. An `.ipa` is only a zip with the app
+  inside a folder named `Payload`, so the script assembles one directly.
 
 ### Free Apple ID caveats
 
