@@ -1,0 +1,14 @@
+# Xcode writes these on the build machine; none of it belongs in the repo.
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Exported archives
+*.xcarchive
+
+.DS_Store
