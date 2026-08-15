@@ -443,6 +443,28 @@ final class APIClient {
         return try await get("api/saved-foods", query: items, as: SavedFoodsEnvelope.self).foods
     }
 
+    // MARK: - Body measurements
+
+    func fetchMeasurements(days: Int = 180) async throws -> [Measurement] {
+        try await get(
+            "api/measurements",
+            query: [URLQueryItem(name: "days", value: String(days))],
+            as: MeasurementsEnvelope.self
+        ).measurements
+    }
+
+    /// The server also syncs a new weight back onto the profile, so callers
+    /// should refresh the profile afterwards or the targets will look stale.
+    @discardableResult
+    func logMeasurement(_ payload: MeasurementPayload) async throws -> Measurement {
+        struct Envelope: Decodable { var measurement: Measurement }
+        return try await send("api/measurements", method: "POST", body: payload, as: Envelope.self).measurement
+    }
+
+    func deleteMeasurement(id: String) async throws {
+        try await delete("api/measurements", query: [URLQueryItem(name: "id", value: id)], as: OKEnvelope.self)
+    }
+
     // MARK: - Journal
 
     func fetchJournal() async throws -> [JournalEntry] {

@@ -367,3 +367,124 @@ enum MealType: String, CaseIterable, Identifiable {
         }
     }
 }
+
+// MARK: - Body measurements
+
+/// Unlike `Profile`, this endpoint is genuinely metric: `weightKg` really is
+/// kilograms and the circumferences really are centimetres. The server converts
+/// when it syncs a new weight back to `Profile.weightKg` (which stores pounds).
+///
+/// The app is imperial everywhere the user can see, so conversion happens at
+/// this boundary and nowhere else — the wire stays metric, the UI stays
+/// imperial. Constants match lib/utils.ts exactly so a value can round-trip.
+struct Measurement: Codable, Identifiable {
+    static let kgPerLb = 0.453592
+    static let cmPerIn = 2.54
+
+    var id: String
+    var takenAt: Date
+    var weightKg: Double?
+    var bodyFatPct: Double?
+    var waistCm: Double?
+    var chestCm: Double?
+    var hipsCm: Double?
+    var armCm: Double?
+    var thighCm: Double?
+    var neckCm: Double?
+    var notes: String?
+
+    var weightLbs: Double? { Measurement.toLbs(weightKg) }
+    var waistIn: Double? { Measurement.toInches(waistCm) }
+    var chestIn: Double? { Measurement.toInches(chestCm) }
+    var hipsIn: Double? { Measurement.toInches(hipsCm) }
+    var armIn: Double? { Measurement.toInches(armCm) }
+    var thighIn: Double? { Measurement.toInches(thighCm) }
+    var neckIn: Double? { Measurement.toInches(neckCm) }
+
+    static func toLbs(_ kg: Double?) -> Double? {
+        guard let kg = kg else { return nil }
+        return (kg / kgPerLb * 10).rounded() / 10
+    }
+
+    static func toKg(_ lbs: Double?) -> Double? {
+        guard let lbs = lbs else { return nil }
+        return (lbs * kgPerLb * 100).rounded() / 100
+    }
+
+    static func toInches(_ cm: Double?) -> Double? {
+        guard let cm = cm else { return nil }
+        return (cm / cmPerIn * 10).rounded() / 10
+    }
+
+    static func toCm(_ inches: Double?) -> Double? {
+        guard let inches = inches else { return nil }
+        return (inches * cmPerIn * 100).rounded() / 100
+    }
+}
+
+struct MeasurementsEnvelope: Codable { var measurements: [Measurement] }
+
+/// Metric on the wire, per the note on `Measurement`.
+struct MeasurementPayload: Encodable {
+    var weightKg: Double?
+    var bodyFatPct: Double?
+    var waistCm: Double?
+    var chestCm: Double?
+    var hipsCm: Double?
+    var armCm: Double?
+    var thighCm: Double?
+    var neckCm: Double?
+    var notes: String?
+}
+
+/// The measurable fields, so the editor and the chart picker can be driven off
+/// one list rather than repeating eight near-identical blocks.
+enum MeasurementField: String, CaseIterable, Identifiable {
+    case weight, bodyFat, waist, chest, hips, arm, thigh, neck
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .weight: return "Weight"
+        case .bodyFat: return "Body fat"
+        case .waist: return "Waist"
+        case .chest: return "Chest"
+        case .hips: return "Hips"
+        case .arm: return "Arm"
+        case .thigh: return "Thigh"
+        case .neck: return "Neck"
+        }
+    }
+
+    var unit: String {
+        switch self {
+        case .weight: return "lb"
+        case .bodyFat: return "%"
+        default: return "in"
+        }
+    }
+
+    /// The user-facing (imperial) value for this field.
+    func value(in measurement: Measurement) -> Double? {
+        switch self {
+        case .weight: return measurement.weightLbs
+        case .bodyFat: return measurement.bodyFatPct
+        case .waist: return measurement.waistIn
+        case .chest: return measurement.chestIn
+        case .hips: return measurement.hipsIn
+        case .arm: return measurement.armIn
+        case .thigh: return measurement.thighIn
+        case .neck: return measurement.neckIn
+        }
+    }
+
+    /// Converts a typed imperial value into the metric the API expects.
+    func metric(from imperial: Double) -> Double {
+        switch self {
+        case .weight: return Measurement.toKg(imperial) ?? imperial
+        case .bodyFat: return imperial
+        default: return Measurement.toCm(imperial) ?? imperial
+        }
+    }
+}

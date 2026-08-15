@@ -36,6 +36,7 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     stats
                     targets
+                    measurementsLink
                     basics
                     server
                     signOut
@@ -88,6 +89,33 @@ struct ProfileView: View {
             Spacer(minLength: 0)
         }
         .padding(.top, 8)
+    }
+
+    // MARK: Measurements
+
+    private var measurementsLink: some View {
+        NavigationLink(destination: MeasurementsView()) {
+            CardSurface {
+                HStack(spacing: 14) {
+                    Image(systemName: "chart.xyaxis.line")
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundColor(.kAccent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Measurements")
+                            .bodyFont(16, weight: .medium)
+                            .foregroundColor(.kInk)
+                        Text("Weight and body trends")
+                            .utilityFont(10)
+                            .foregroundColor(.kInkMuted)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.kInkMuted)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Targets
