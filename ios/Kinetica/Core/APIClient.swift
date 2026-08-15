@@ -29,6 +29,18 @@ private struct ErrorEnvelope: Decodable {
     var error: String?
 }
 
+/// Distinct from `APIError` because the caller has a real choice to offer when
+/// it happens: merge into the existing food, or pick another name.
+enum SavedFoodError: LocalizedError {
+    case nameTaken(conflictId: String?)
+
+    var errorDescription: String? {
+        switch self {
+        case .nameTaken: return "You already have a food saved under that name."
+        }
+    }
+}
+
 // MARK: - Request payloads
 
 struct SignInPayload: Encodable {
@@ -156,6 +168,25 @@ struct TargetsPayload: Encodable {
         var fatTargetG: Int?
     }
     var targets: Targets
+}
+
+struct SavedFoodPatch: Encodable {
+    var id: String
+    var name: String
+    var brand: String?
+    var servingDescription: String
+    var servingAmount: Double
+    var servingUnit: String
+    var servingGrams: Double?
+    var calories: Int
+    var proteinG: Double
+    var carbsG: Double
+    var fatG: Double
+}
+
+struct MergeFoodsPayload: Encodable {
+    var keepId: String
+    var mergeIds: [String]
 }
 
 struct EmptyPayload: Encodable {}
@@ -463,6 +494,52 @@ final class APIClient {
 
     func deleteMeasurement(id: String) async throws {
         try await delete("api/measurements", query: [URLQueryItem(name: "id", value: id)], as: OKEnvelope.self)
+    }
+
+    // MARK: - Saved food management
+
+    /// A rename that collides with an existing (name, servingDescription) comes
+    /// back 409 with the conflicting row's id, so the caller can offer a merge
+    /// instead of just reporting failure.
+    func updateSavedFood(_ patch: SavedFoodPatch) async throws -> SavedFood {
+        struct Envelope: Decodable { var food: SavedFood }
+        struct Conflict: Decodable { var error: String?; var conflictId: String? }
+
+        var request = try makeRequest("api/saved-foods", method: "PATCH")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(patch)
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw APIError.badResponse }
+            if http.statusCode == 409 {
+                let conflict = try? decoder.decode(Conflict.self, from: data)
+                throw SavedFoodError.nameTaken(conflictId: conflict?.conflictId)
+            }
+            try validate(response, data: data)
+            AppConfig.persistCookies()
+            return try decode(Envelope.self, from: data).food
+        } catch let error as APIError {
+            throw error
+        } catch let error as SavedFoodError {
+            throw error
+        } catch is URLError {
+            throw APIError.offline
+        }
+    }
+
+    func deleteSavedFood(id: String) async throws {
+        try await delete("api/saved-foods", query: [URLQueryItem(name: "id", value: id)], as: OKEnvelope.self)
+    }
+
+    @discardableResult
+    func mergeSavedFoods(keep: String, merge: [String]) async throws -> SavedFood {
+        struct Envelope: Decodable { var food: SavedFood }
+        return try await send(
+            "api/saved-foods/merge",
+            method: "POST",
+            body: MergeFoodsPayload(keepId: keep, mergeIds: merge),
+            as: Envelope.self
+        ).food
     }
 
     // MARK: - Journal

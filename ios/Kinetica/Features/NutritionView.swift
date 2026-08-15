@@ -38,6 +38,14 @@ struct NutritionView: View {
             .navigationTitle("Food")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // My Foods lives here rather than under the profile: it's a
+                // food thing, and this is where you'd look for it.
+                ToolbarItem(placement: .navigationBarLeading) {
+                    NavigationLink(destination: MyFoodsView()) {
+                        Image(systemName: "bookmark")
+                            .foregroundColor(.kAccent)
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showingLogSheet = true
