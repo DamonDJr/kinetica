@@ -230,6 +230,79 @@ extension View {
     }
 }
 
+/// Wraps subviews onto as many lines as they need.
+///
+/// SwiftUI still has no built-in flow layout, and the usual stand-in — a
+/// horizontal `ScrollView` — hides options off the right edge with nothing to
+/// indicate they're there. That's what made the activity picker awkward.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    var lineSpacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > maxWidth {
+                x = 0
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+        return CGSize(width: maxWidth == .infinity ? max(x - spacing, 0) : maxWidth, height: y + lineHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX && x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+    }
+}
+
+/// A settings-style row: label on the left, value on the right, unit after it.
+///
+/// The alternative — a caption stacked above a full-width, right-aligned field —
+/// puts the two halves of one fact at opposite corners of the screen and gives
+/// the eye nothing to track along. Fixed label column so the values line up
+/// into a scannable edge.
+struct FieldRow<Content: View>: View {
+    let label: String
+    var unit: String? = nil
+    @ViewBuilder var field: () -> Content
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(label.uppercased())
+                .utilityFont(10)
+                .foregroundColor(.kInkMuted)
+                .frame(width: 84, alignment: .leading)
+            field()
+            if let unit = unit {
+                Text(unit)
+                    .utilityFont(10)
+                    .foregroundColor(.kInkMuted)
+                    .frame(width: 20, alignment: .leading)
+            }
+        }
+    }
+}
+
 /// Empty-state copy. Kept quiet — an empty day isn't a failure state.
 struct EmptyNote: View {
     let text: String

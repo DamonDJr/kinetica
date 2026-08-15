@@ -122,66 +122,63 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 14) {
                 SectionHeader("Body data")
 
-                labelled("Name") {
-                    TextField("Name", text: $displayName).kFieldStyle()
-                }
-
-                HStack(spacing: 10) {
-                    labelled("Age") {
+                VStack(spacing: 8) {
+                    FieldRow(label: "Name") {
+                        TextField("Name", text: $displayName)
+                            .kFieldStyle()
+                    }
+                    FieldRow(label: "Age", unit: "yr") {
                         TextField("0", text: $age)
                             .keyboardType(.numberPad)
                             .kFieldStyle(alignment: .trailing)
                     }
-                    labelled("Height (in)") {
+                    FieldRow(label: "Height", unit: "in") {
                         TextField("0", text: $heightIn)
                             .keyboardType(.decimalPad)
                             .kFieldStyle(alignment: .trailing)
                     }
-                }
-
-                HStack(spacing: 10) {
-                    labelled("Weight (lb)") {
+                    FieldRow(label: "Weight", unit: "lb") {
                         TextField("0", text: $weightLbs)
                             .keyboardType(.decimalPad)
                             .kFieldStyle(alignment: .trailing)
                     }
-                    labelled("Goal (lb)") {
+                    FieldRow(label: "Goal", unit: "lb") {
                         TextField("0", text: $goalWeightLbs)
                             .keyboardType(.decimalPad)
                             .kFieldStyle(alignment: .trailing)
                     }
-                }
-
-                labelled("Sex") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(genders, id: \.self) { value in
-                                Chip(title: value.capitalized, selected: gender == value) { gender = value }
-                            }
-                        }
-                        .padding(.vertical, 2)
+                    FieldRow(label: "BMR", unit: "kcal") {
+                        TextField("Auto", text: $bmrOverride)
+                            .keyboardType(.numberPad)
+                            .kFieldStyle(alignment: .trailing)
                     }
                 }
 
-                labelled("Activity") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(activities, id: \.self) { value in
-                                Chip(title: value.capitalized, selected: activity == value) { activity = value }
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
-
-                labelled("BMR override (kcal)") {
-                    TextField("Auto", text: $bmrOverride)
-                        .keyboardType(.numberPad)
-                        .kFieldStyle(alignment: .trailing)
-                }
-                Text("Leave blank to use Mifflin-St Jeor from the numbers above.")
+                Text("Leave BMR blank to calculate it from the numbers above.")
                     .utilityFont(10)
                     .foregroundColor(.kInkMuted)
+
+                Divider().background(Color.kHairline)
+
+                // Wrapped rather than side-scrolled: every option stays visible,
+                // which is the whole problem with the previous chip rows.
+                VStack(alignment: .leading, spacing: 6) {
+                    Eyebrow("Sex")
+                    FlowLayout {
+                        ForEach(genders, id: \.self) { value in
+                            Chip(title: value.capitalized, selected: gender == value) { gender = value }
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Eyebrow("Activity")
+                    FlowLayout {
+                        ForEach(activities, id: \.self) { value in
+                            Chip(title: value.capitalized, selected: activity == value) { activity = value }
+                        }
+                    }
+                }
 
                 if let error = errorText {
                     Text(error)
@@ -199,14 +196,6 @@ struct ProfileView: View {
                 .disabled(isSaving)
             }
         }
-    }
-
-    private func labelled<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Eyebrow(title)
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Server
