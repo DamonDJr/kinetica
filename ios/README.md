@@ -81,6 +81,21 @@ Two details worth knowing before changing the build config:
 `xtool dev run` builds, signs and installs over USB. Alternatively `xtool
 install <ipa>`, or hand the `.app` to Sideloadly/AltStore.
 
+Three toolchain gotchas, learned the hard way and written up properly in
+`~/dev/apps/ScreenSprouts/ios/SETUP.md` — that's the canonical doc for this
+machine's Swift/xtool setup:
+
+- **Check the device with `idevice_id -l`, not `xtool devices`.** The latter
+  blocks indefinitely when nothing is plugged in rather than reporting an empty
+  list, so it looks like a hang when it just means "no device".
+- **`usbmuxd` has to be running** (`pgrep -a usbmuxd`). The daemon is a separate
+  package from `libimobiledevice`, so having the tools doesn't mean having it.
+- **Any `xtool sdk install` replaces the whole SDK bundle**, silently dropping
+  the clang-header patch that lives on top of it. Re-run
+  `ScreenSprouts/ios/tools/verify-sdk.sh` afterwards. It doesn't bite this app —
+  Kinetica never reaches the affected headers — but a clean build here is not
+  evidence the SDK is whole.
+
 Free Apple ID caveats, unchanged by any of this:
 
 - The app **expires after 7 days** and must be reinstalled. AltStore/SideStore
