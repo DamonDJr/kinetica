@@ -2,6 +2,7 @@ import { ai, AI_MODEL, stripReasoning } from "@/lib/ai";
 import { webSearch } from "@/lib/search";
 import { searchUsdaFoods, type UsdaFood } from "@/lib/usda";
 import { db } from "@/lib/db";
+import { normalizeName } from "@/lib/food-name";
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -233,6 +234,75 @@ function sanityCheck(est: NutritionEstimate): NutritionEstimate {
   return est;
 }
 
+const MEMORY_STOP_WORDS = new Set([
+  "and", "the", "with", "of", "for", "plus", "cup", "cups", "serving", "servings",
+]);
+
+function significantWords(text: string): Set<string> {
+  return new Set(
+    normalizeName(text)
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 2 && !MEMORY_STOP_WORDS.has(w)),
+  );
+}
+
+/**
+ * Finds the user's own saved foods relevant to this meal.
+ *
+ * These are the highest-precedence data the verifier gets — values the user has
+ * confirmed by hand — so a missed match costs accuracy directly. The previous
+ * approach searched the DB once per component using only that component's FIRST
+ * word, which meant "strawberry cheesecake greek yogurt" looked for
+ * "strawberry" and never found a saved "Greek Yogurt". Those queries also ran
+ * sequentially, one round trip per component.
+ *
+ * A personal profile has tens to hundreds of saved foods, so a single read plus
+ * in-process scoring is both quicker and far better at matching than N LIKE
+ * queries.
+ */
+async function matchSavedFoods(
+  profileId: string,
+  componentNames: string[],
+  description: string,
+): Promise<string[]> {
+  const saved = await db.savedFood.findMany({
+    where: { profileId },
+    orderBy: [{ useCount: "desc" }, { lastUsedAt: "desc" }],
+    take: 400,
+  });
+  if (!saved.length) return [];
+
+  const targets = [...componentNames, description]
+    .filter((t) => t?.trim())
+    .map(significantWords)
+    .filter((w) => w.size > 0);
+  if (!targets.length) return [];
+
+  return saved
+    .map((food) => {
+      const foodWords = significantWords(`${food.name} ${food.brand ?? ""}`);
+      if (!foodWords.size) return { food, score: 0 };
+      let best = 0;
+      for (const target of targets) {
+        let overlap = 0;
+        for (const word of foodWords) if (target.has(word)) overlap++;
+        // Scored against the saved food's own word count, so a short precise
+        // name ("Greek Yogurt") outranks a long one sharing a single word.
+        best = Math.max(best, overlap / foodWords.size);
+      }
+      return { food, score: best };
+    })
+    // Half the saved food's words have to appear: enough for a component to
+    // match a longer saved name, strict enough to keep unrelated foods out of
+    // a prompt where they'd be treated as authoritative.
+    .filter((x) => x.score >= 0.5)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6)
+    .map(({ food }) =>
+      `- YOUR saved "${food.name}"${food.brand ? ` (${food.brand})` : ""}: ${food.calories} cal, ${food.proteinG}g protein, ${food.carbsG}g carb, ${food.fatG}g fat per ${food.servingDescription || "serving"} (logged ${food.useCount}×)`,
+    );
+}
+
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
 export async function* runNutritionPipeline(input: PipelineInput): AsyncGenerator<StageEvent> {
@@ -345,24 +415,11 @@ export async function* runNutritionPipeline(input: PipelineInput): AsyncGenerato
 
     // ── Stage 3: memory search — the user's own previously-saved foods ───────
     yield { type: "stage", stage: "memory", label: STAGE_LABELS.memory };
-    const memoryLines: string[] = [];
-    const seenMemory = new Set<string>();
-    const memoryQueries = components.length ? components.map((c) => c.lookupQuery) : [description];
-    for (const q of memoryQueries) {
-      const term = q.split(/\s+/).filter((w) => w.length > 2)[0] ?? q;
-      const saved = await db.savedFood.findMany({
-        where: { profileId: input.profileId, name: { contains: term } },
-        orderBy: [{ useCount: "desc" }, { lastUsedAt: "desc" }],
-        take: 2,
-      });
-      for (const f of saved) {
-        if (seenMemory.has(f.id)) continue;
-        seenMemory.add(f.id);
-        memoryLines.push(
-          `- YOUR saved "${f.name}"${f.brand ? ` (${f.brand})` : ""}: ${f.calories} cal, ${f.proteinG}g protein, ${f.carbsG}g carb, ${f.fatG}g fat per ${f.servingDescription || "serving"} (logged ${f.useCount}×)`,
-        );
-      }
-    }
+    const memoryLines = await matchSavedFoods(
+      input.profileId,
+      components.map((c) => c.name),
+      description,
+    );
 
     // ── Stage 4: verification — synthesize + sanity-check the final estimate ──
     yield { type: "stage", stage: "verifying", label: STAGE_LABELS.verifying };
