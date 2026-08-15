@@ -238,7 +238,7 @@ const MEMORY_STOP_WORDS = new Set([
   "and", "the", "with", "of", "for", "plus", "cup", "cups", "serving", "servings",
 ]);
 
-function significantWords(text: string): Set<string> {
+function memoryWords(text: string): Set<string> {
   return new Set(
     normalizeName(text)
       .split(/[^a-z0-9]+/)
@@ -274,13 +274,13 @@ async function matchSavedFoods(
 
   const targets = [...componentNames, description]
     .filter((t) => t?.trim())
-    .map(significantWords)
+    .map(memoryWords)
     .filter((w) => w.size > 0);
   if (!targets.length) return [];
 
   return saved
     .map((food) => {
-      const foodWords = significantWords(`${food.name} ${food.brand ?? ""}`);
+      const foodWords = memoryWords(`${food.name} ${food.brand ?? ""}`);
       if (!foodWords.size) return { food, score: 0 };
       let best = 0;
       for (const target of targets) {
