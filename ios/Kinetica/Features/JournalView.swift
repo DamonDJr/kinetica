@@ -3,7 +3,6 @@
 //  already saved, so a local model that's asleep costs a reply, never the note.
 
 import SwiftUI
-import UIKit
 
 @MainActor
 struct JournalView: View {
@@ -17,7 +16,7 @@ struct JournalView: View {
     private let api = APIClient.shared
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let error = errorText {
@@ -62,10 +61,9 @@ struct JournalView: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
         .task { await load() }
         .sheet(isPresented: $showingCompose) {
-            NavigationView {
+            NavigationStack {
                 JournalComposeView { _ in
                     Task {
                         await load()
@@ -73,7 +71,6 @@ struct JournalView: View {
                     }
                 }
             }
-            .navigationViewStyle(.stack)
         }
     }
 
@@ -191,28 +188,18 @@ struct JournalComposeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                ZStack(alignment: .topLeading) {
-                    if content.isEmpty {
-                        Text("How did it go?")
-                            .bodyFont()
-                            .foregroundColor(.kInkMuted)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 20)
-                    }
-                    // iOS 15 has no multi-line TextField, so this is a
-                    // TextEditor with its own placeholder behind it.
-                    TextEditor(text: $content)
-                        .bodyFont()
-                        .foregroundColor(.kInk)
-                        .frame(minHeight: 150)
-                        .padding(10)
-                        .focused($editorFocused)
-                        .onAppear {
-                            UITextView.appearance().backgroundColor = .clear
-                        }
-                }
-                .background(Color.kSurface)
-                .cornerRadius(16)
+                // A real multi-line TextField, which replaces a TextEditor
+                // stacked under a fake placeholder — and, better, removes the
+                // global `UITextView.appearance()` mutation that was needed to
+                // make the editor's background transparent.
+                TextField("How did it go?", text: $content, axis: .vertical)
+                    .bodyFont()
+                    .foregroundColor(.kInk)
+                    .lineLimit(6...14)
+                    .padding(14)
+                    .background(Color.kSurface)
+                    .cornerRadius(16)
+                    .focused($editorFocused)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Eyebrow("Mood")

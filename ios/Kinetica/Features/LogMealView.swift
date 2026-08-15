@@ -37,7 +37,7 @@ struct LogMealView: View {
     private var canSave: Bool { !items.isEmpty && !isSaving }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     smartInput
@@ -77,7 +77,6 @@ struct LogMealView: View {
                 if !items.isEmpty { totalsBar }
             }
         }
-        .navigationViewStyle(.stack)
         .task { await loadRecents() }
     }
 
@@ -95,7 +94,7 @@ struct LogMealView: View {
                     .focused($queryFocused)
                     .submitLabel(.search)
                     .onSubmit { analyze() }
-                    .onChange(of: query) { next in scheduleSearch(next) }
+                    .onChange(of: query) { _, next in scheduleSearch(next) }
 
                 Button(action: { analyze() }) {
                     Image(systemName: "sparkles")
@@ -400,7 +399,7 @@ struct ItemRowEditor: View {
                         .keyboardType(.decimalPad)
                         .kFieldStyle(alignment: .center)
                         .frame(width: 74)
-                        .onChange(of: amountText) { next in
+                        .onChange(of: amountText) { _, next in
                             guard let value = Double(next.replacingOccurrences(of: ",", with: ".")), value > 0 else { return }
                             // The equality guard is what stops this bouncing:
                             // rescaling rewrites the macro fields, whose own
@@ -473,7 +472,7 @@ struct ItemRowEditor: View {
             TextField("0", text: binding)
                 .keyboardType(.decimalPad)
                 .kFieldStyle(alignment: .center)
-                .onChange(of: binding.wrappedValue) { _ in applyMacros() }
+                .onChange(of: binding.wrappedValue) { applyMacros() }
         }
     }
 

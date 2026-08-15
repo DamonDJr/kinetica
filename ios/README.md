@@ -1,7 +1,7 @@
 # Kinetica for iOS — Iron & Chalk
 
-A native SwiftUI client for the self-hosted Kinetica server, built to compile on
-**Xcode 13.2.1** (the last version that runs on a 2013 MacBook Air / macOS Big Sur).
+A native SwiftUI client for the self-hosted Kinetica server, built with
+[xtool](https://github.com/xtool-org/xtool) on Linux against the **iOS 26.4 SDK**.
 
 It is a *client*, not a second app: it talks to the same Next.js API over
 Tailscale, so the phone and the browser share one database, one AI coach, one
@@ -20,102 +20,76 @@ targets and the whole nutrition pipeline stay on the server.
 | | Onboarding (do it once in the browser) |
 | | Photo meal capture (AI *text* describe works) |
 
-Everything absent is a deliberate cut for a first installable pass, not a
-blocker — the API endpoints all exist already.
-
-## Requirements
-
-- Xcode 13.2.1 (iOS 15.2 SDK, Swift 5.5)
-- Deployment target: **iOS 15.0**
-- iPhone only, portrait only
-- Tailscale on the phone, and the PC awake running `npm run start`
+Everything absent is a deliberate cut, not a blocker — the API endpoints all
+exist already.
 
 ## Build
 
-1. Open `ios/Kinetica.xcodeproj`.
-2. Leave **Team** set to *None* under *Signing & Capabilities*.
-3. Pick a **simulator** in the destination dropdown (iPhone 13, say) — not
-   *Any iOS Device*.
-4. Build and run.
-
-**Don't set a Team, and don't select a device destination, until you actually
-want the app on the phone.** The moment you do either, Xcode tries to mint a
-development provisioning profile, and on a free Apple ID with no iPhone it can
-talk to that fails with:
-
-> Failed to create provisioning profile. There are no devices registered in
-> your account on the developer website.
-
-That error says nothing about your code. Simulator builds aren't signed at all,
-so `Team: None` + a simulator destination compiles and runs the whole app with
-the signing machinery switched off entirely.
-
-The useful part: **you never need Xcode signing to work.** The sideloading route
-below has Sideloadly re-sign the app with your Apple ID and register the device
-itself, so Xcode's provisioning system stays out of it from start to finish.
-
-The app runs against `https://damonj-pc.tailcc1d47.ts.net:9879` by default. That's
-editable inside the app (on the login screen under *Server*, and later in the
-**You** tab), so pointing it at `next dev` on the LAN never needs a rebuild —
-which matters, because re-signing a sideloaded app is a chore.
-
-## Getting it onto a modern iPhone
-
-**This is the awkward part.** Xcode 13.2.1 ships device-support files only up to
-iOS 15.2. Installing directly from Xcode to a phone running anything newer will
-fail with *"could not locate device support files"*.
-
-Two routes. Read both before starting — the second is the one I'd bet on.
-
-### Route A — Xcode DeviceSupport transplant (iOS 16 only, fragile)
-
-Drop a matching `DeviceSupport` folder into
-
-```
-/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/
+```bash
+cd ios
+xtool dev build
 ```
 
-then restart Xcode. This is known to work for iOS 16.x. It does **not** work for
-iOS 17 and later: iOS 17 moved device communication to a new tunnelled protocol
-that Xcode 13 doesn't speak at all, so no amount of copied files will help.
-
-### Route B — build an `.ipa` and sideload it (works regardless of iOS version)
-
-The binary itself is fine on any modern iOS — apps built against old SDKs keep
-running, they just don't opt into newer system behaviours. It's only *Xcode's
-installer* that's too old. So bypass it.
-
-From the `ios` directory:
+Output: `ios/xtool/Kinetica.app`. To build, sign and install to a connected
+device in one go:
 
 ```bash
-./tools/build-ipa.sh
+xtool dev run
 ```
 
-That writes `ios/Kinetica.ipa`. Drop it on **Sideloadly** (or
-**AltStore/SideStore**), enter your Apple ID, and let it sign and install. Both
-bundle their own current device-communication libraries and run happily on Big
-Sur. If the build fails the script prints the deduplicated compile errors rather
-than making you dig through the log.
+Requires, once, on the build machine:
 
-Two things the script is working around, in case it ever needs changing:
+- **Swift 6.3+** toolchain
+- **xtool**, with `xtool setup` completed (Apple ID credentials + Darwin SDK)
+- **usbmuxd** running, for install over USB
+- A Darwin Swift SDK registered as `darwin` (`swift sdk list` to check)
 
-- It builds **unsigned** (`CODE_SIGNING_ALLOWED=NO`) because a free Apple ID
-  can only be issued a profile for a device Xcode has registered, and Xcode
-  13.2.1 can't talk to an iOS 16+ phone in order to register it. Sideloadly
-  signs the app and registers the device itself, so Xcode's provisioning system
-  is never involved.
-- It avoids *Product → Archive*, which fails on exactly that wall — archiving
-  insists on a valid provisioning profile. An `.ipa` is only a zip with the app
-  inside a folder named `Payload`, so the script assembles one directly.
+`xtool dev generate-xcode-project` produces an Xcode project on demand if one is
+ever wanted — there's no checked-in `.xcodeproj`, and nothing depends on Xcode.
 
-### Free Apple ID caveats
+## Layout
+
+```
+ios/
+  Package.swift          SwiftPM manifest — target points at Kinetica/ via `path:`
+  xtool.yml              bundle id, Info.plist, icon, bundled resources
+  Support/Info.plist     app Info.plist (kept out of xtool/, the output dir)
+  Kinetica/
+    Design/              Palette, Typography, ChalkRing, Components, Haptics
+    Core/                APIClient, Models, AppConfig, AppState, DayStore
+    Features/            One file per screen
+    Resources/           Fonts, AppIcon.png
+  tools/make_icon.py     regenerates AppIcon.png from the palette
+```
+
+`Design/` is the whole design language and nothing else — no screen should
+contain a raw hex value or a font size that isn't a token.
+
+Two details worth knowing before changing the build config:
+
+- **Fonts go through `xtool.yml`'s `resources`, not SwiftPM's.** A library
+  target's SwiftPM resources land in a nested `.bundle`, which is the wrong
+  place for fonts registered via `UIAppFonts`. `xtool.yml` copies them to the
+  bundle root, where the plist expects them.
+- **`iconPath` is a single 1024px PNG.** xtool copies it to the bundle root and
+  sets `CFBundleIconFile`; there's no asset catalog, so macOS-only `actool`
+  never enters into it. `tools/make_icon.py` draws it from the same colour
+  tokens as the app.
+
+## Installing
+
+`xtool dev run` builds, signs and installs over USB. Alternatively `xtool
+install <ipa>`, or hand the `.app` to Sideloadly/AltStore.
+
+Free Apple ID caveats, unchanged by any of this:
 
 - The app **expires after 7 days** and must be reinstalled. AltStore/SideStore
-  can auto-refresh it over wifi; plain Sideloadly can't.
+  can auto-refresh over wifi.
 - Three sideloaded apps at a time, ten new app IDs per week.
 - No push notifications, no App Groups — which is why the home-screen widget
-  from the design spec isn't in this build. It needs a paid account to be worth
-  writing.
+  from the design spec isn't here. It needs a paid account to be worth writing.
+- iOS 16+ requires **Developer Mode**: Settings → Privacy & Security →
+  Developer Mode → on → restart. One time only.
 
 ## First run
 
@@ -140,72 +114,19 @@ back to the system serif rather than to San Francisco, which would flatten the
 identity entirely.
 
 Two static instances are bundled (Medium, SemiBold) rather than the variable
-font, because iOS 15's variable-font support is unreliable. The tradeoff: no
-access to Fraunces' `SOFT`/`WONK` axes, so the "softer at large sizes" note in
-the design spec isn't literally implemented — the optical size is fixed.
+font. The tradeoff: no access to Fraunces' `SOFT`/`WONK` axes, so the "softer at
+large sizes" note in the design spec isn't literally implemented — the optical
+size is fixed.
 
-## Working on the project
+## History
 
-Xcode 13 can't add files to a target from the command line, and hand-editing a
-`pbxproj` is a good way to lose an afternoon. So the project is generated:
+This started life as an Xcode 13.2.1 project targeting iOS 15, because the only
+Mac available was a 2013 MacBook Air stuck on Big Sur. That ceiling shaped a lot
+of code: `NavigationView` instead of `NavigationStack`, a manual refresh button
+because `ScrollView` had no `refreshable`, a `TextEditor` with a fake
+placeholder standing in for a multi-line `TextField`, and the design spec's
+letter-spacing dropped because `tracking` didn't exist yet.
 
-```bash
-python3 ios/tools/generate_project.py
-```
-
-It walks `ios/Kinetica`, mirrors the folders as Xcode groups, and sorts files
-into the right build phase. Object ids are derived from file paths, so re-running
-without changes produces an identical file. **Run it after adding or deleting a
-Swift file**, then reopen the project.
-
-The app icon is likewise generated from the palette rather than checked in as an
-opaque binary:
-
-```bash
-python3 ios/tools/make_icon.py
-```
-
-### Layout
-
-```
-Kinetica/
-  Design/     Palette, Typography, ChalkRing, Components, Haptics
-  Core/       APIClient, Models, AppConfig, AppState, DayStore
-  Features/   One file per screen
-  Resources/  Fonts, Assets.xcassets
-```
-
-`Design/` is the whole design language and nothing else — no screen should
-contain a raw hex value or a font size that isn't a token.
-
-## iOS 15 constraints worth knowing before you edit
-
-The SDK ceiling bites in specific, recurring places:
-
-- `NavigationView`, not `NavigationStack`. `NavigationLink(destination:label:)`
-  takes a **value**, not a ViewBuilder closure.
-- `ScrollView` has no pull-to-refresh; `.refreshable` only works on `List`.
-  That's why the dashboard has an explicit refresh button.
-- Only one `.sheet(isPresented:)` per view reliably presents. Where a screen
-  needs two, use `.sheet(item:)` with an enum (see `DashboardView`).
-- No `TextField(axis: .vertical)` — multi-line input is a `TextEditor` with a
-  hand-rolled placeholder behind it.
-- No Swift Charts, no `PhotosPicker`, no `.presentationDetents`, no
-  `.scrollContentBackground`.
-- Swift 5.5: no `if let x {` shorthand, no `any` existentials.
-- Every `View` struct is explicitly `@MainActor` because `AppState`/`DayStore`
-  are — Swift 5.5 errors on touching main-actor state from a view's
-  non-isolated computed properties, and the annotation is the cheap fix.
-
-## Known gaps
-
-- **Not compile-tested.** It was written on Linux, where there's no Swift/iOS
-  toolchain to check it against. Expect to fix a handful of compile errors on the
-  first build; the shapes and API contracts are the parts that were verified
-  carefully.
-- The Chalk Ring's grain is a cached 96×96 noise tile masked to the arc. It
-  reads correctly at the sizes used here; at very large sizes the tiling may
-  become visible.
-- Meal logging sends `source: "ai"` only when the coach was actually used, so
-  hand-entered rows don't accumulate in My Foods. There's no My Foods management
-  screen in this build — use the web app for merges and renames.
+xtool removed the ceiling, and all of that is now gone. The old project is in
+git history if it's ever needed; `xtool dev generate-xcode-project` is the
+better answer.

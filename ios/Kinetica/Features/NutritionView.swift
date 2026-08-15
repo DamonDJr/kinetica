@@ -18,7 +18,7 @@ struct NutritionView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     dateBar
@@ -33,6 +33,7 @@ struct NutritionView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
             }
+            .refreshable { await store.load() }
             .screenBackground()
             .navigationTitle("Food")
             .navigationBarTitleDisplayMode(.inline)
@@ -47,14 +48,13 @@ struct NutritionView: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
         .task { await store.load() }
-        .onChange(of: state.dataVersion) { _ in
+        .onChange(of: state.dataVersion) {
             Task { await store.load() }
         }
         // Coming back after midnight has to move the day on; the store pins it
         // when the view is first built and the app can sit in memory for days.
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             store.rollOverIfNeeded()
             Task { await store.load() }

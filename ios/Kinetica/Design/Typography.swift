@@ -96,11 +96,9 @@ extension View {
         font(KType.body(size, weight: weight))
     }
 
-    /// SF Mono for data. The spec asks for slight letter-spacing here, but
-    /// `tracking`/`kerning` only arrived in iOS 16 — on this SDK the options are
-    /// AttributedString gymnastics or going without, and mono is already wide
-    /// enough that going without is the honest trade.
+    /// SF Mono with the slight tracking the spec calls for — it keeps dense
+    /// figures from reading as a wall.
     func utilityFont(_ size: CGFloat = KType.Size.utility, weight: Font.Weight = .regular) -> some View {
-        font(KType.utility(size, weight: weight))
+        font(KType.utility(size, weight: weight)).tracking(0.4)
     }
 }

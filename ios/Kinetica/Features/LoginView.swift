@@ -120,7 +120,7 @@ struct LoginView: View {
                     .disableAutocorrection(true)
                     .kFieldStyle()
                     .focused($focused, equals: .server)
-                    .onChange(of: serverURL) { next in
+                    .onChange(of: serverURL) { _, next in
                         AppConfig.baseURLString = next
                     }
                 Text("Needs Tailscale connected on this phone, and the PC awake with the server running.")

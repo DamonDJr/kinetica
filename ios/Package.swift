@@ -1,4 +1,6 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
+// (6.2 rather than the xtool template's 6.0 — `.iOS(.v26)` isn't available in
+// PackageDescription before then.)
 
 // Second build system, same sources.
 //
@@ -16,10 +18,10 @@ import PackageDescription
 let package = Package(
     name: "Kinetica",
     platforms: [
-        // Matches the Xcode project. Raising this is safe once the xtool route
-        // is the only one in use — it would unlock NavigationStack and the rest
-        // of the post-15 API surface the code currently works around.
-        .iOS(.v15),
+        // xtool builds against the iOS 26.4 SDK. The Xcode 13 project that
+        // forced an iOS 15 ceiling is gone — `xtool dev generate-xcode-project`
+        // makes a fresh one if an Xcode project is ever wanted again.
+        .iOS(.v26),
     ],
     products: [
         .library(
@@ -35,7 +37,6 @@ let package = Package(
             // land in a nested .bundle, which is the wrong place for fonts
             // registered via UIAppFonts and for the app icon.
             exclude: [
-                "Info.plist",
                 "Resources",
             ],
             swiftSettings: [

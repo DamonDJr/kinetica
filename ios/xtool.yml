@@ -2,13 +2,12 @@ version: 1
 bundleID: com.damonj.kinetica
 product: Kinetica
 
-# A plain Info.plist with literal values. The Xcode one uses build variables
-# ($(PRODUCT_NAME), $(EXECUTABLE_NAME)…) that only Xcode substitutes, so the two
-# build systems each get their own rather than shipping unexpanded strings.
-infoPath: xtool/Info.plist
+# Lives in Support/ rather than xtool/, which is where xtool writes the built
+# .app — build output and source config shouldn't share a directory.
+infoPath: Support/Info.plist
 
-# A single 1024px PNG — xtool derives the icon set from it, so the .xcassets
-# catalog (which would need macOS-only actool) isn't involved on this path.
+# A single 1024px PNG — xtool derives the icon set from it, so no asset
+# catalog and no macOS-only actool.
 iconPath: Kinetica/Resources/AppIcon.png
 
 # Copied into the app bundle root, where UIAppFonts expects to find them.

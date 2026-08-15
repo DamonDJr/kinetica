@@ -1,19 +1,9 @@
-# Xcode writes these on the build machine; none of it belongs in the repo.
-xcuserdata/
-*.xcuserstate
-*.xcscmblueprint
-DerivedData/
-build/
+# Build output. `xtool/` is where xtool writes the .app — the app's own config
+# lives in Support/ precisely so it isn't swept up by this.
+.build/
+xtool/
+.sourcekit-lsp/
 *.ipa
-*.dSYM.zip
 *.dSYM
 
-# Exported archives
-*.xcarchive
-
 .DS_Store
-
-# SwiftPM / xtool
-.build/
-xtool-build/
-.sourcekit-lsp/

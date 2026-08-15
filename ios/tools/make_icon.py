@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Iron & Chalk app icon set.
+"""Generate the Iron & Chalk app icon.
 
 The old Kinetica mark belongs to the previous (purple/teal) design language, so
 the icon is drawn here from the same tokens as the app: chalk-fog ground, an
@@ -16,25 +16,11 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 FONT = os.path.join(ROOT, "Kinetica", "Resources", "Fonts", "Fraunces-SemiBold.ttf")
-ICONSET = os.path.join(ROOT, "Kinetica", "Resources", "Assets.xcassets", "AppIcon.appiconset")
+ICON = os.path.join(ROOT, "Kinetica", "Resources", "AppIcon.png")
 
 CHALK_FOG = (232, 228, 220)
 IRON = (43, 40, 37)
 ROPE_OCHRE = (184, 134, 59)
-
-# (size in px, filename) — the full iPhone set Xcode 13 still expects.
-SIZES = [
-    (40, "icon-20@2x.png"),
-    (60, "icon-20@3x.png"),
-    (58, "icon-29@2x.png"),
-    (87, "icon-29@3x.png"),
-    (80, "icon-40@2x.png"),
-    (120, "icon-40@3x.png"),
-    (120, "icon-60@2x.png"),
-    (180, "icon-60@3x.png"),
-    (1024, "icon-1024.png"),
-]
-
 
 def render(side=1024):
     image = Image.new("RGB", (side, side), CHALK_FOG)
@@ -75,19 +61,10 @@ def render(side=1024):
 
 
 def main():
-    os.makedirs(ICONSET, exist_ok=True)
-    master = render(1024)
-    for size, name in SIZES:
-        resized = master if size == 1024 else master.resize((size, size), Image.LANCZOS)
-        # App icons must not carry an alpha channel.
-        resized.convert("RGB").save(os.path.join(ICONSET, name), "PNG")
-        print("wrote", name, size)
-
-    # xtool takes a single 1024px PNG and derives the whole set itself, so it
-    # never needs the asset catalog (which would require macOS-only actool).
-    standalone = os.path.join(ROOT, "Kinetica", "Resources", "AppIcon.png")
-    master.convert("RGB").save(standalone, "PNG")
-    print("wrote AppIcon.png 1024 (xtool)")
+    # xtool derives the whole icon set from a single 1024px master, so there's
+    # no size table and no asset catalog to keep in step.
+    render(1024).convert("RGB").save(ICON, "PNG")
+    print("wrote", ICON)
 
 
 if __name__ == "__main__":

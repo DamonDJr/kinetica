@@ -31,7 +31,7 @@ struct ProfileView: View {
     private var profile: Profile? { state.profile }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     stats
@@ -48,9 +48,8 @@ struct ProfileView: View {
             .navigationTitle("You")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .navigationViewStyle(.stack)
         .onAppear { fillFromProfile() }
-        .onChange(of: state.profile?.id) { _ in fillFromProfile() }
+        .onChange(of: state.profile?.id) { fillFromProfile() }
     }
 
     // MARK: Stats
@@ -221,7 +220,7 @@ struct ProfileView: View {
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                     .kFieldStyle()
-                    .onChange(of: serverURL) { next in AppConfig.baseURLString = next }
+                    .onChange(of: serverURL) { _, next in AppConfig.baseURLString = next }
                 Text("Needs Tailscale connected and the PC awake. Changing this signs you out on the next request.")
                     .utilityFont(10)
                     .foregroundColor(.kInkMuted)

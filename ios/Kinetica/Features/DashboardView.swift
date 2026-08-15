@@ -48,7 +48,7 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     header
@@ -64,17 +64,20 @@ struct DashboardView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
             }
+            .refreshable {
+                await store.load()
+                await state.loadProfile()
+            }
             .screenBackground()
             .navigationBarHidden(true)
         }
-        .navigationViewStyle(.stack)
         .task { await store.load() }
-        .onChange(of: state.dataVersion) { _ in
+        .onChange(of: state.dataVersion) {
             Task { await store.load() }
         }
         // Coming back after midnight has to move the day on; the store pins it
         // when the view is first built and the app can sit in memory for days.
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             store.rollOverIfNeeded()
             Task { await store.load() }
@@ -356,7 +359,7 @@ private struct BurnedSheet: View {
     @State private var text: String = ""
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Active calories from your watch for this day. This replaces the day's figure rather than adding to it.")
                     .bodyFont(15)
@@ -387,7 +390,6 @@ private struct BurnedSheet: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
         .onAppear { text = current > 0 ? String(current) : "" }
     }
 }

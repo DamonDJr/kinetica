@@ -132,7 +132,7 @@ struct ChalkRing<Label: View>: View {
                 shown = clamped
             }
         }
-        .onChange(of: clamped) { next in
+        .onChange(of: clamped) { _, next in
             withAnimation(.easeOut(duration: animateOnAppear ? 0.6 : 0.2)) { shown = next }
         }
     }
